@@ -1,0 +1,23 @@
+{
+  "name": "study-buddy",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Study Buddy: a personalized Alexa+ study mentor (MCP server + Agent Skills + Alexa+ simulator).",
+  "license": "MIT",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "start:mcp": "npm run start -w @studybuddy/mcp-server",
+    "start:sim": "npm run start -w @studybuddy/simulator",
+    "test": "npm test -w @studybuddy/mcp-server && npm test -w @studybuddy/simulator",
+    "typecheck": "tsc -p packages/mcp-server && tsc -p apps/simulator",
+    "reset": "rm -rf .data"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

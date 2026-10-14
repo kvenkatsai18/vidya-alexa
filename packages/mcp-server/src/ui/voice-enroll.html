@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Create your story voice</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@300..800&family=Literata:opsz,wght@7..72,400..600&display=swap" rel="stylesheet" />
+<style>
+  :root { --bg: #12163a; --card: #1c2150; --line: #343a78; --ink: #f4ecdd; --ink-2: #b9b6d6; --lamp: #ffc978; --ok: #7ddba3; --oops: #ff8fb1; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: radial-gradient(50rem 30rem at 85% -10%, rgba(255,201,120,.15), transparent 60%), var(--bg); color: var(--ink); font-family: "Atkinson Hyperlegible Next", system-ui, sans-serif; line-height: 1.5; }
+  main { max-width: 640px; margin: 0 auto; padding: 40px 20px 60px; }
+  h1 { font-family: "Literata", Georgia, serif; font-weight: 600; font-size: 2rem; color: var(--lamp); margin: 0 0 6px; }
+  .sub { color: var(--ink-2); margin: 0 0 24px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 20px 22px; margin-bottom: 16px; }
+  .card h2 { font-size: 1rem; margin: 0 0 10px; }
+  ul { margin: 0; padding-left: 1.1rem; color: var(--ink-2); }
+  li + li { margin-top: 4px; }
+  .step { font-size: .85rem; color: var(--ink-2); margin: 14px 0 6px; }
+  .consent { font-size: 1.25rem; font-weight: 650; padding: 12px 14px; border-left: 4px solid var(--lamp); background: rgba(255,201,120,.08); border-radius: 0 10px 10px 0; }
+  .passage { font-family: "Literata", Georgia, serif; font-size: 1.12rem; line-height: 1.7; }
+  label.check { display: flex; gap: 10px; align-items: flex-start; font-size: .95rem; }
+  label.check input { margin-top: 4px; width: 18px; height: 18px; accent-color: var(--lamp); }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  button { font: inherit; font-weight: 700; border-radius: 999px; padding: 12px 22px; border: 1.5px solid var(--line); background: #262c66; color: var(--ink); cursor: pointer; }
+  button.primary { background: var(--lamp); border-color: var(--lamp); color: #2a1d06; }
+  button:disabled { opacity: .45; cursor: default; }
+  button:focus-visible { outline: 3px solid var(--lamp); outline-offset: 2px; }
+  .rec { width: 12px; height: 12px; border-radius: 50%; background: var(--oops); display: inline-block; animation: blink 1s infinite; }
+  @keyframes blink { 50% { opacity: .3; } }
+  .meter { flex: 1; min-width: 120px; height: 8px; border-radius: 999px; background: #2a3070; overflow: hidden; }
+  .meter i { display: block; height: 100%; width: 0; background: var(--ok); transition: width 80ms linear; }
+  .timer { font-variant-numeric: tabular-nums; font-weight: 700; min-width: 3.5rem; }
+  .status { margin-top: 12px; min-height: 1.5em; }
+  .status.err { color: var(--oops); }
+  .status.ok { color: var(--ok); }
+  .heard { font-size: .85rem; color: var(--ink-2); margin-top: 8px; }
+  audio { width: 100%; margin-top: 12px; }
+  .note { font-size: .85rem; color: var(--ink-2); }
+  @media (prefers-reduced-motion: reduce) { .rec { animation: none; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Create your story voice</h1>
+  <p class="sub" id="who"></p>
+
+  <section class="card">
+    <h2>How your voice will be used</h2>
+    <ul>
+      <li>It only reads bedtime stories your family asks for, and goodnight messages you write yourself, word for word.</li>
+      <li>It never chats or makes up things to say in your voice.</li>
+      <li>Everything in your voice is labelled as AI.</li>
+      <li>Your recording is sent to the voice service to create the voice and isn't kept by Study Buddy. You can pause or delete your voice any time by asking.</li>
+    </ul>
+  </section>
+
+  <section class="card">
+    <label class="check"><input type="checkbox" id="own" /> <span>This is my own voice, I'm an adult, and I'm choosing to create it.</span></label>
+    <p class="step">1. Press record, then read this sentence out loud:</p>
+    <p class="consent" id="consent"></p>
+    <p class="step">2. Then read this short passage in your normal, warm storytelling voice:</p>
+    <p class="passage" id="passage"></p>
+    <div class="row" style="margin-top:14px">
+      <button class="primary" id="rec" disabled>Start recording</button>
+      <span class="timer" id="timer">0:00</span>
+      <div class="meter" aria-hidden="true"><i id="level"></i></div>
+    </div>
+    <p class="heard" id="heard"></p>
+    <audio id="preview" controls hidden></audio>
+    <div class="row" style="margin-top:12px">
+      <button class="primary" id="create" hidden>Create my voice</button>
+      <button id="again" hidden>Record again</button>
+    </div>
+    <p class="status" id="status" role="status" aria-live="polite"></p>
+    <p class="note" id="mode"></p>
+  </section>
+</main>
+<script>
+  const CFG = __CONFIG__;
+  const $ = (id) => document.getElementById(id);
+  $("who").textContent = `For ${CFG.parentName}. Stories will be labelled "${CFG.relation}'s voice (AI)".`;
+  $("consent").textContent = CFG.consentPhrase;
+  $("passage").textContent = CFG.passage;
+  if (!CFG.live) $("mode").textContent = "Test mode: the voice service key isn't set up yet, so this checks your recording and consent but won't create a real cloned voice.";
+  $("own").onchange = () => ($("rec").disabled = !$("own").checked);
+
+  let media, recorder, chunks = [], started = 0, tick, wavBlob, transcript = "", recognition;
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  $("rec").onclick = async () => {
+    if (recorder?.state === "recording") return stop();
+    try {
+      media = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+    } catch {
+      return status("Microphone access is needed to record your voice.", "err");
+    }
+    chunks = [];
+    transcript = "";
+    recorder = new MediaRecorder(media);
+    recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+    recorder.onstop = finish;
+    recorder.start();
+    started = Date.now();
+    $("rec").innerHTML = `<span class="rec"></span> Stop`;
+    $("create").hidden = $("again").hidden = $("preview").hidden = true;
+    status("Recording. Read the sentence, then the passage.");
+    meter(media);
+    tick = setInterval(() => {
+      const s = Math.floor((Date.now() - started) / 1000);
+      $("timer").textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+      if (s >= 120) stop();
+    }, 250);
+    if (SR) {
+      // Listen for the consent sentence while recording.
+      recognition = new SR();
+      recognition.lang = "en-US";
+      recognition.continuous = true;
+      recognition.interimResults = false;
+      recognition.onresult = (e) => {
+        for (let i = e.resultIndex; i < e.results.length; i++) if (e.results[i].isFinal) transcript += " " + e.results[i][0].transcript;
+        $("heard").textContent = `Heard: “${transcript.trim().slice(0, 140)}${transcript.length > 140 ? "…" : ""}”`;
+      };
+      recognition.onerror = () => {};
+      try { recognition.start(); } catch {}
+    }
+  };
+
+  function stop() {
+    clearInterval(tick);
+    recognition?.stop();
+    recorder?.stop();
+    media?.getTracks().forEach((t) => t.stop());
+    $("rec").textContent = "Start recording";
+  }
+
+  async function finish() {
+    const secs = (Date.now() - started) / 1000;
+    if (secs < 20) return status(`That was only ${Math.round(secs)} seconds. Please read the whole passage (at least 20 seconds).`, "err");
+    status("Preparing your recording…");
+    wavBlob = await toWav(new Blob(chunks, { type: recorder.mimeType }));
+    $("preview").src = URL.createObjectURL(wavBlob);
+    $("preview").hidden = false;
+    $("create").hidden = $("again").hidden = false;
+    status("Have a listen. If it sounds right, create your voice.");
+  }
+
+  $("again").onclick = () => $("rec").click();
+
+  $("create").onclick = async () => {
+    $("create").disabled = true;
+    status("Creating your voice… this can take a few seconds.");
+    const r = await fetch(`/voice/enroll?token=${encodeURIComponent(CFG.token)}`, {
+      method: "POST",
+      headers: { "Content-Type": "audio/wav", "X-Transcript": encodeURIComponent(transcript.trim()), "X-Attested": SR ? "0" : "1" },
+      body: wavBlob,
+    });
+    const out = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      $("create").disabled = false;
+      return status(out.error ?? "Something went wrong. Please try again.", "err");
+    }
+    status(`Your story voice is ready, ${CFG.parentName}. You can close this page.`, "ok");
+    $("rec").disabled = true;
+    $("again").hidden = true;
+  };
+
+  function status(text, cls = "") {
+    $("status").textContent = text;
+    $("status").className = `status ${cls}`;
+  }
+
+  function meter(stream) {
+    const ctx = new AudioContext();
+    const an = ctx.createAnalyser();
+    ctx.createMediaStreamSource(stream).connect(an);
+    const data = new Uint8Array(an.fftSize);
+    const loop = () => {
+      if (recorder?.state !== "recording") return ctx.close();
+      an.getByteTimeDomainData(data);
+      let peak = 0;
+      for (const v of data) peak = Math.max(peak, Math.abs(v - 128));
+      $("level").style.width = `${Math.min(100, (peak / 128) * 160)}%`;
+      requestAnimationFrame(loop);
+    };
+    loop();
+  }
+
+  /** Decode whatever MediaRecorder produced and re-encode as 16-bit mono 22.05 kHz WAV (accepted everywhere). */
+  async function toWav(blob) {
+    const ctx = new AudioContext();
+    const decoded = await ctx.decodeAudioData(await blob.arrayBuffer());
+    ctx.close();
+    const rate = 22050;
+    const off = new OfflineAudioContext(1, Math.ceil(decoded.duration * rate), rate);
+    const src = off.createBufferSource();
+    src.buffer = decoded;
+    src.connect(off.destination);
+    src.start();
+    const pcm = (await off.startRendering()).getChannelData(0);
+    const buf = new ArrayBuffer(44 + pcm.length * 2);
+    const v = new DataView(buf);
+    const w = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+    w(0, "RIFF"); v.setUint32(4, 36 + pcm.length * 2, true); w(8, "WAVE");
+    w(12, "fmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+    w(36, "data"); v.setUint32(40, pcm.length * 2, true);
+    for (let i = 0; i < pcm.length; i++) v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, pcm[i])) * 0x7fff, true);
+    return new Blob([buf], { type: "audio/wav" });
+  }
+</script>
+</body>
+</html>
