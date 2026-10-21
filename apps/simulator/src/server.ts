@@ -2,6 +2,9 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express, { type Request, type Response } from "express";
+import { modelLabel } from "../../../packages/mcp-server/src/domain/bedrock.ts";
+import { llmModeFromEnv, modelsFromEnv } from "../../../packages/mcp-server/src/domain/llm.ts";
+import { BedrockAgent } from "./agent-bedrock.ts";
 import { ClaudeAgent } from "./agent-claude.ts";
 import { OfflineAgent, SAMPLE_NOTES_PATH } from "./agent-offline.ts";
 import type { VoiceAgent } from "./agent.ts";
@@ -11,24 +14,22 @@ import { POLLY_VOICES, synthesize, TTS_ENABLED } from "./tts.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.SIM_PORT ?? 5173);
+const HOST = process.env.SIM_HOST ?? "127.0.0.1";
+const AUTH: Record<string, string> = process.env.BUDDY_ACCESS_TOKEN ? { authorization: `Bearer ${process.env.BUDDY_ACCESS_TOKEN}` } : {};
 const MCP_URL = process.env.MCP_URL ?? "http://127.0.0.1:8787/mcp";
 const MCP_ORIGIN = new URL(MCP_URL).origin;
-const MODEL = process.env.BUDDY_MODEL ?? "claude-opus-5-5";
 const EFFORT = (process.env.BUDDY_EFFORT ?? "low") as "low" | "medium" | "high";
 
 const skills = loadSkills();
 
-function detectMode(): "anthropic" | "bedrock" | "offline" {
-  const forced = process.env.BUDDY_LLM;
-  if (forced === "anthropic" || forced === "bedrock" || forced === "offline") return forced;
-  if (process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN) return "anthropic";
-  return "offline";
-}
-const MODE = detectMode();
+// Amazon Nova on Amazon Bedrock whenever AWS credentials exist; Claude via the Anthropic API as the alternative.
+const MODE = llmModeFromEnv();
+const { model: MODEL, genModel: GEN_MODEL } = modelsFromEnv(MODE);
 
 function makeAgent(): VoiceAgent {
   if (MODE === "offline") return new OfflineAgent();
-  return new ClaudeAgent({ provider: MODE, model: MODEL, effort: EFFORT, skills });
+  if (MODE === "bedrock") return new BedrockAgent({ model: MODEL, genModel: GEN_MODEL, skills });
+  return new ClaudeAgent({ model: MODEL, effort: EFFORT, skills });
 }
 
 const sessions = new Map<string, Session>();
@@ -56,19 +57,31 @@ app.get("/api/config", (_req, res) => {
   res.json({
     mode: MODE,
     model: MODE === "offline" ? null : MODEL,
-    effort: MODE === "offline" ? null : EFFORT,
+    effort: MODE === "anthropic" ? EFFORT : null,
     mcpUrl: MCP_URL,
     skills: skills.map((s) => ({ name: s.name, description: s.description })),
-    tts: TTS_ENABLED ? { engine: "polly", voices: POLLY_VOICES, default: process.env.BUDDY_VOICE ?? "Matthew" } : { engine: "browser" },
+    tts: TTS_ENABLED ? { engine: "polly", voices: POLLY_VOICES, default: process.env.BUDDY_VOICE ?? "Joanna" } : { engine: "browser" },
   });
 });
 
-app.post("/api/sessions", async (_req, res) => {
+app.post("/api/sessions", async (req, res) => {
+  if (MODE === "offline") {
+    // No pre-made demo: Study Buddy only runs with a real model.
+    return void res.status(503).json({
+      needsAi: true,
+      error: "Study Buddy needs an AI connection. Add AWS credentials with Amazon Bedrock access (aws configure, region us-east-1), then restart with npm run dev.",
+    });
+  }
   try {
-    const s = await Session.create(makeAgent(), MCP_URL);
+    // ?home=rao in the device URL makes this a different household (to try Study Together across homes).
+    const home = String(req.body?.home ?? "").toLowerCase().replace(/[^a-z0-9-]+/g, "-").slice(0, 40) || "home";
+    // The device's own time zone, so "Good morning" matches the clock on the wall.
+    const tz = /^[A-Za-z_]+(\/[A-Za-z0-9_+-]+){0,2}$/.test(String(req.body?.tz ?? "")) ? String(req.body.tz) : undefined;
+    const s = await Session.create(makeAgent(), MCP_URL, home, tz);
     sessions.set(s.id, s);
     res.json({
       id: s.id,
+      home: s.home,
       agent: s.agentLabel,
       server: s.mcp.serverInfo,
       protocolVersion: s.mcp.protocolVersion,
@@ -98,7 +111,10 @@ app.post("/api/sessions/:id/turn", (req, res) => {
   if (!s) return;
   const text = String(req.body?.text ?? "").slice(0, 500);
   const source = ["voice", "tap", "text"].includes(req.body?.source) ? req.body.source : "text";
-  void s.turn(text, source);
+  // They cut the device off mid-reply: what it had said, and what it hadn't yet.
+  const i = req.body?.interrupted;
+  const interrupted = i && typeof i.said === "string" ? { said: String(i.said).slice(0, 1500), unsaid: String(i.unsaid ?? "").slice(0, 1500), answering: i.answering === true } : undefined;
+  void s.turn(text, source, interrupted);
   res.status(202).json({ ok: true });
 });
 
@@ -174,7 +190,7 @@ app.post("/api/admin/:action", async (req, res) => {
   try {
     const r = await fetch(`${MCP_ORIGIN}/admin/${action}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...AUTH },
       body: JSON.stringify(req.body ?? {}),
     });
     if (action === "reset") for (const s of sessions.values()) s.resetConversation();
@@ -192,9 +208,9 @@ app.get("/api/admin/now", async (_req, res) => {
   }
 });
 
-app.listen(PORT, "127.0.0.1", () => {
+app.listen(PORT, HOST, () => {
   console.log(`[simulator] http://localhost:${PORT}`);
-  console.log(`[simulator] agent: ${MODE === "offline" ? "offline scripted mode (set ANTHROPIC_API_KEY or BUDDY_LLM=bedrock for Claude)" : `${MODE} / ${MODEL} / effort ${EFFORT}, answering MCP sampling`}`);
+  console.log(`[simulator] agent: ${MODE === "offline" ? "NO AI CONNECTED: the device will ask for one (add AWS credentials for Amazon Nova on Bedrock, or ANTHROPIC_API_KEY)" : MODE === "bedrock" ? `${modelLabel(MODEL)} on Amazon Bedrock (${MODEL}); sampling on ${GEN_MODEL}` : `Claude ${MODEL} via Anthropic API, effort ${EFFORT}`}`);
   console.log(`[simulator] skills: ${skills.map((s) => s.name).join(", ")}`);
   console.log(`[simulator] voice: ${TTS_ENABLED ? "Amazon Polly (generative)" : "browser speech synthesis (set BUDDY_TTS=polly for a natural voice)"}`);
   console.log(`[simulator] MCP server: ${MCP_URL}`);

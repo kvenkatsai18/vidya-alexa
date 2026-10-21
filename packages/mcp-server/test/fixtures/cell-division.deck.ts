@@ -1,15 +1,9 @@
-import type { Concept } from "../src/domain/types.ts";
+import type { ConceptSeed } from "../../src/domain/types.ts";
 
 /**
- * Pre-built study deck for content/cell-division.md, so the full experience works offline
- * (no LLM). With an LLM connected, uploaded material is turned into a deck like this one
- * automatically.
+ * TEST FIXTURE ONLY. A fixed study deck for content/cell-division.md, so the automated tests are
+ * deterministic and never call a real model. The product generates every deck live with the model.
  */
-export type ConceptSeed = Omit<Concept, "id" | "deckId" | "flashcards" | "questions"> & {
-  flashcards: Array<{ front: string; back: string }>;
-  questions: Array<Omit<Concept["questions"][number], "id">>;
-};
-
 export const CELL_DIVISION_DECK: { title: string; subject: string; match: RegExp; concepts: ConceptSeed[] } = {
   title: "Cell division",
   subject: "Biology",

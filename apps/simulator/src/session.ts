@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { CallToolResult, ElicitRequest, ElicitResult } from "@modelcontextprotocol/sdk/types.js";
+import { detectConcern } from "../../../packages/mcp-server/src/domain/safety.ts";
 import type { AgentContext, VoiceAgent } from "./agent.ts";
 import { McpConnection, type TraceFrame } from "./mcp-client.ts";
 
@@ -14,8 +15,10 @@ export type SimEvent =
   | { type: "learner"; name: string; level?: string }
   | { type: "audio"; items: Array<{ url: string; label: string; fallbackText: string }> }
   | { type: "voice_ready" }
+  | { type: "alert"; guardian: string | null; category: string; learner?: string }
   | { type: "sampling"; purpose: string; ms: number }
   | { type: "elicit_done"; id: string; action: string }
+  | { type: "learned"; lesson: string }
   | { type: "error"; message: string };
 
 const YES = /^(yes|yeah|yep|yup|sure|ok(ay)?|confirm|do it|place it|book it|buy it|go ahead|please do|absolutely|definitely)\b/i;
@@ -29,6 +32,9 @@ interface PendingElicit {
   resolve: (r: ElicitResult) => void;
 }
 
+/** "Thanks, that's enough for today", "ok good night", "bye", "I'm done for now". */
+const GOODBYE = /\b(bye|good ?night|that'?s (enough|it|all) for (today|now|tonight)|i'?m done( for (today|now|tonight))?|see you( tomorrow| later)?|gotta go|talk (to you )?later)\b/i;
+
 export class Session {
   readonly id = randomUUID();
   mcp!: McpConnection;
@@ -36,19 +42,46 @@ export class Session {
   private backlog: SimEvent[] = [];
   private pending?: PendingElicit;
   private busy = false;
+  /** What the learner actually said this turn: lessons are only saved if these words ask for a change. */
+  private heardNow = "";
+  /** Latest version of each live game this device has shown, so a push doesn't repeat our own result. */
+  private gameVersions = new Map<string, number>();
   lastActive = Date.now();
 
   private constructor(
     readonly agent: VoiceAgent,
     private mcpUrl: string,
+    readonly home: string,
+    private timeZone?: string,
   ) {}
+  /** The day the agent was last told the date (models don't know today's date on their own). */
+  private toldDay = "";
 
-  static async create(agent: VoiceAgent, mcpUrl: string): Promise<Session> {
-    const s = new Session(agent, mcpUrl);
+  static async create(agent: VoiceAgent, mcpUrl: string, home = "home", timeZone?: string): Promise<Session> {
+    const s = new Session(agent, mcpUrl, home, timeZone);
     s.mcp = await McpConnection.connect(mcpUrl, {
+      home,
+      timeZone,
+      accessToken: process.env.BUDDY_ACCESS_TOKEN || undefined,
+      onResourceUpdated: (uri) => void s.gameUpdated(uri),
       onTrace: (frame) => s.emit({ type: "trace", frame }),
       onElicit: (params) => s.elicit(params),
-      onElicitComplete: () => {
+      onElicitComplete: (elicitationId) => {
+        if (elicitationId.startsWith("school-")) {
+          s.emit({ type: "voice_ready" });
+          // Connected, or Google said they're under 13 and a parent has to do it: say which.
+          void s
+            .ctx()
+            .callTool("school_status", {})
+            .then((r) => {
+              const sc = (r.structuredContent ?? {}) as { kind?: string; speech?: string };
+              const parent = sc.kind === "school_needs_parent";
+              s.agent.note?.(parent ? `Connecting school didn't go through: ${sc.speech}` : "The learner's school is now connected and synced (read-only). They can ask what homework they have.");
+              s.emit({ type: "speech", text: parent ? sc.speech! : "Your school is connected! Ask me what homework you have, or what's coming up." });
+            })
+            .catch(() => s.emit({ type: "speech", text: "Your school is connected! Ask me what homework you have, or what's coming up." }));
+          return;
+        }
         s.emit({ type: "voice_ready" });
         s.agent.note?.("The parent finished recording; their story voice is now ready to use for bedtime stories.");
         s.emit({ type: "speech", text: "Your story voice is ready! Next time, just ask for a bedtime story in your voice." });
@@ -109,6 +142,26 @@ export class Session {
     return {
       mcp: this.mcp,
       callTool: async (name, args) => {
+        // The AI may not invent corrections: the server checks lessons against the learner's real words.
+        if (name === "learn_from_feedback") args = { ...args, learner_said: this.heardNow };
+        // Grade what the learner actually said, never the model's tidied-up version of it.
+        if (name === "answer_question" && this.heardNow) args = { ...args, answer: this.heardNow.replace(/^\s*(hey |ok |okay )?alexa[,!.]?\s*/i, "") };
+        // "One more example, with a car engine?" is a new explanation, not web research.
+        if (name === "research_topic" && /\b(example|explain|another way|walk me through|show me how)\b/i.test(this.heardNow) && !/\b(research|latest|new|news|recent|look (it |that )?up|search|beyond|real[- ]world|real life|used in)\b/i.test(this.heardNow)) {
+          name = "explain_concept";
+          args = { style: "example", request: this.heardNow };
+        }
+        // "Delete my study plan" is not "delete my whole profile": everything=true needs those words.
+        if (name === "forget" && args.everything && !/\b(everything|all (about|of) me|(my|the) (whole |entire )?(profile|account)|all my (data|info)|start (over|fresh)|reset)\b/i.test(this.heardNow)) {
+          if (/\b(plan|notes?|study sets?|topics?|decks?|material|subjects?)\b/i.test(this.heardNow)) {
+            name = "delete_study_set";
+            args = { all: true };
+          } else {
+            return { isError: true, content: [{ type: "text", text: "Not deleted: the learner didn't ask to delete their whole profile. Ask them exactly what to delete (a study set, a memory, or a lesson)." }] };
+          }
+        }
+        // "What?" in a quiz means "say it again", not "give me a hint".
+        if (name === "quiz_action" && args.action === "hint" && /^\W*(what|huh|pardon( me)?|sorry|come again|say (that|it) again|repeat( that| it)?|what was (that|the question))\W*$/i.test(this.heardNow.replace(/^\s*(hmm+|um+|uh+|alexa)[,.]?\s*/i, ""))) args = { ...args, action: "repeat" };
         const started = Date.now();
         this.emit({ type: "tool", phase: "call", name, args });
         const result = await this.mcp.callTool(name, args);
@@ -120,14 +173,41 @@ export class Session {
         if (sc?.audioUrl) this.emit({ type: "audio", items: [{ url: sc.audioUrl, label: sc.voiceLabel ?? "", fallbackText: [sc.title, ...(sc.pages ?? []), sc.question].filter(Boolean).join(" ") }] });
         const msgs = (sc?.messages ?? []).filter((m) => m.audioUrl);
         if (msgs.length) this.emit({ type: "audio", items: msgs.map((m) => ({ url: m.audioUrl!, label: m.label, fallbackText: m.text })) });
-        if (sc?.learner?.name && sc.learner.role !== "child") this.emit({ type: "learner", name: sc.learner.name, level: sc.learner.level });
-        if (!result.isError) {
+        const flagged = result.structuredContent as { kind?: string; guardian?: string | null; category?: string; learner?: { name: string } } | undefined;
+        if (flagged?.kind === "concern_flagged" && flagged.guardian) this.emit({ type: "alert", guardian: flagged.guardian ?? null, category: flagged.category ?? "", learner: flagged.learner?.name });
+        const speaker = (result.structuredContent as { speaker?: string } | undefined)?.speaker;
+        if (speaker) this.emit({ type: "learner", name: speaker });
+        else if (sc?.learner?.name && (sc.learner.role !== "child" || name === "switch_learner" || name === "get_today" || name === "set_up_learner")) this.emit({ type: "learner", name: sc.learner.name, level: sc.learner.level });
+        const game = result.structuredContent as { gameUri?: string; version?: number; status?: string } | undefined;
+        if (game?.gameUri && !result.isError) {
+          this.gameVersions.set(game.gameUri, Math.max(game.version ?? 0, this.gameVersions.get(game.gameUri) ?? 0));
+          if (game.status === "done") void this.mcp.unsubscribe(game.gameUri);
+          else void this.mcp.subscribe(game.gameUri);
+        }
+        if (!result.isError && (result.structuredContent as { kind?: string } | undefined)?.kind !== "lesson_skipped") {
           const ui = await this.mcp.uiFor(name).catch(() => null);
           if (ui) this.emit({ type: "card", toolName: name, uri: ui.uri, html: ui.html, input: args, result });
         }
         return result;
       },
     };
+  }
+
+  /** Another home did something in our online game: show the new state and say what happened. */
+  private async gameUpdated(uri: string) {
+    try {
+      const view = await this.mcp.readJson(uri);
+      if ((view.version ?? 0) <= (this.gameVersions.get(uri) ?? 0)) return;
+      this.gameVersions.set(uri, view.version);
+      if (view.status === "done") void this.mcp.unsubscribe(uri);
+      this.agent.observe?.(view);
+      this.agent.note?.(`Online game update (${view.code}): ${view.speech} ${view.yourTurn ? "It's this learner's turn; their next words are their answer (online_game_answer)." : ""}`.trim());
+      const ui = await this.mcp.uiFor("online_game_action").catch(() => null);
+      if (ui) this.emit({ type: "card", toolName: "online_game_action", uri: ui.uri, html: ui.html, input: {}, result: { content: [{ type: "text", text: JSON.stringify(view) }], structuredContent: view } });
+      if (view.speech) this.emit({ type: "speech", text: view.speech });
+    } catch {
+      // The game ended or expired; nothing to show.
+    }
   }
 
   /**
@@ -161,11 +241,19 @@ export class Session {
     return this.ctx().callTool(name, args);
   }
 
-  async turn(text: string, source: "voice" | "tap" | "text") {
+  async turn(text: string, source: "voice" | "tap" | "text", interrupted?: { said: string; unsaid: string; answering?: boolean }) {
     this.lastActive = Date.now();
     const utterance = text.trim();
     if (!utterance) return;
     this.emit({ type: "user", text: utterance, source });
+    this.heardNow = utterance;
+    if (interrupted?.answering) {
+      this.agent.note?.(`The learner answered before you finished reading the quiz question (you had said: "${interrupted.said || "(nothing yet)"}"). Their words are their answer: grade them with answer_question, unless they clearly asked for something else (hint, skip, repeat, stop).`);
+    } else if (interrupted) {
+      this.agent.note?.(
+        `The learner interrupted you mid-reply. You had already said: "${interrupted.said || "(nothing yet)"}". You had not yet said: "${interrupted.unsaid}". Their next words are their reaction: respond to that in context, carry on from where it makes sense, and don't repeat what you already said.`,
+      );
+    }
 
     if (this.pending) {
       const said = utterance.replace(/^\s*alexa[,!.]?\s*/i, "");
@@ -187,13 +275,48 @@ export class Session {
     this.busy = true;
     this.emit({ type: "status", state: "thinking" });
     try {
+      if (GOODBYE.test(utterance)) {
+        this.agent.note?.("They're wrapping up for now. If a quiz is running, end it (quiz_action end). Then say one or two warm sentences: what they did and what's next. Don't read out a plan, list topics, or ask a question.");
+      }
+      const now = new Date();
+      const day = now.toLocaleDateString("en-US", { timeZone: this.timeZone, weekday: "long", year: "numeric", month: "long", day: "numeric" });
+      if (day !== this.toldDay) {
+        this.toldDay = day;
+        this.agent.note?.(`Today is ${day}.`);
+      }
+      // A correction ("too easy", "call me Priya A") applies to this very reply, not just the next one.
+      const pre = await this.mcp.callTool("record_turn", { heard: utterance, said: "", phase: "heard" }).catch(() => undefined);
+      const learnedNow = (pre?.structuredContent as { learned?: { lesson: string } | null } | undefined)?.learned;
+      const examNow = (pre?.structuredContent as { exam?: { title: string; when: string; daysAway: number } | null } | undefined)?.exam;
+      if (examNow) this.agent.note?.(`Saved from what they just said: their ${examNow.title} is ${examNow.when} (${examNow.daysAway} days away). It's on their plan; mention it briefly, no need to save it again.`);
+      if (learnedNow?.lesson) {
+        this.emit({ type: "learned", lesson: learnedNow.lesson });
+        this.agent.note?.(`The learner just taught you: "${learnedNow.lesson}". Follow it from this reply on.`);
+      }
+      // Safety first, whatever model is plugged in: worrying words get the caring reply (and a linked
+      // parent is alerted) before the model runs, so it never depends on the model choosing to.
+      const worry = detectConcern(utterance);
+      if (worry) {
+        const r = await this.ctx().callTool("flag_concern", { category: worry.category, severity: worry.severity, summary: worry.summary, excerpt: utterance });
+        const sc = (r.structuredContent ?? {}) as { speech?: string; guardian?: string | null };
+        const speech = sc.speech || "Thank you for telling me. Please talk to an adult you trust about this.";
+        this.agent.note?.(`The learner just said: "${utterance}". Study Buddy already answered with a caring safety reply${sc.guardian ? ` and alerted their ${sc.guardian.toLowerCase()}` : ""}. Be gentle, and don't go back to studying unless they ask.`);
+        this.emit({ type: "speech", text: speech });
+        await this.mcp.callTool("record_turn", { heard: utterance, said: speech, phase: "said" }).catch(() => undefined);
+        return;
+      }
       const speech = await this.agent.turn(this.ctx(), utterance);
       this.emit({ type: "speech", text: speech });
+      // Keep the family's conversation history (parents can review it); this also backstops safety detection.
+      const logged = await this.mcp.callTool("record_turn", { heard: utterance, said: speech, phase: "said" }).catch(() => undefined);
+      const c = (logged?.structuredContent as { concern?: { guardian?: string | null; category?: string; learner?: { name: string } } | null } | undefined)?.concern;
+      if (c?.guardian) this.emit({ type: "alert", guardian: c.guardian ?? null, category: c.category ?? "", learner: c.learner?.name });
     } catch (e) {
       console.error(e);
       const msg = (e as Error).message ?? String(e);
       this.emit({ type: "error", message: msg });
-      this.emit({ type: "speech", text: "Sorry, something went wrong on my end. Please try that again." });
+      const busy = /Throttling|Too many requests|ServiceUnavailable/i.test(msg);
+      this.emit({ type: "speech", text: busy ? "Sorry, I'm a little swamped right now. Give me a few seconds and say that again?" : "Sorry, something went wrong on my end. Please try that again." });
     } finally {
       this.busy = false;
       this.emit({ type: "status", state: "idle" });

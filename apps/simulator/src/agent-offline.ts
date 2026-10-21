@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { detectConcern } from "../../../packages/mcp-server/src/domain/safety.ts";
 import { structured, type AgentContext, type VoiceAgent } from "./agent.ts";
 
 /**
@@ -26,6 +27,13 @@ function norm(text: string) {
     .replace(/[“”"]/g, "")
     .replace(/[.!?]+$/, "")
     .trim();
+}
+
+const DIGIT_WORDS: Record<string, string> = { zero: "0", one: "1", two: "2", three: "3", four: "4", five: "5", six: "6", seven: "7", eight: "8", nine: "9" };
+
+/** "tiger four two" -> "tiger 4 2" (the server normalizes the rest). */
+function digitsOf(code: string): string {
+  return code.replace(/\b(zero|one|two|three|four|five|six|seven|eight|nine)\b/g, (w) => DIGIT_WORDS[w]);
 }
 
 function daysUntil(t: string): number | undefined {
@@ -99,16 +107,25 @@ export class OfflineAgent implements VoiceAgent {
   private last: R | null = null;
   private lastConcept?: string;
   private learnerName?: string;
+  /** Set when a parent is the one talking ("I'm Asha, Leo's mom"). */
+  private parent?: { name: string; relation: string; child?: string };
+  /** Last Study Together line-up, for "rematch". */
+  private lastPlayers?: string[];
   private styleTurn = 0;
 
   reset() {
     this.last = null;
     this.lastConcept = undefined;
     this.learnerName = undefined;
+    this.parent = undefined;
   }
 
   note() {
     // The router reads state from tool results; nothing to remember here.
+  }
+
+  observe(state: R) {
+    this.last = state;
   }
 
   async turn(ctx: AgentContext, raw: string): Promise<string> {
@@ -125,27 +142,103 @@ export class OfflineAgent implements VoiceAgent {
     const say = (r: R) => String(r.speech ?? "Okay.");
     const last = this.last;
 
-    // --- parent story voices (consent-first; stories and parent-written messages only)
+    // --- child safety comes before everything (a parent describing a worry is a parent note instead)
+    const worry = detectConcern(raw);
+    if (worry && !this.parent) {
+      return say(await call("flag_concern", { category: worry.category, severity: worry.severity, summary: worry.summary, excerpt: raw }));
+    }
+
+    // --- parent transparency controls
+    const histFor = t.match(/\b(?:show me|what has|what did|let me see|read me)\s+([a-z]+)'?s?\s+(?:been (?:talking|saying|chatting)|conversations?|chats?|history)\b/)?.[1] ?? t.match(/\b([a-z]+)'s (conversations?|chats?|chat history|history)\b/)?.[1];
+    if (histFor && !/\b(delete|clear|erase)\b/.test(t)) return say(await call("parent_history", { child: histFor[0].toUpperCase() + histFor.slice(1) }));
+    const setFor = t.match(/\b(?:full history|summary|summaries)\b.*\bfor ([a-z]+)\b/)?.[1] ?? t.match(/\bswitch ([a-z]+) to (?:full|summary)\b/)?.[1];
+    if (setFor) return say(await call("parent_settings", { child: setFor[0].toUpperCase() + setFor.slice(1), visibility: /\bsummar/.test(t) && !/\bfull\b/.test(t) ? "summary" : "full" }));
+    const clearFor = t.match(/\b(?:delete|clear|erase) ([a-z]+)'s (?:conversation )?(?:history|conversations|chats)\b/)?.[1];
+    if (clearFor) return say(await call("parent_settings", { child: clearFor[0].toUpperCase() + clearFor.slice(1), clear_history: true }));
+
+    // --- answering the icebreaker when we first meet a child
+    if (last?.kind === "meet" && !/\b(story|quiz|explain|help|notes|parent|join|game|online)\b/.test(t)) {
+      const name = last.learner?.name ?? "";
+      const answer = raw.replace(/^\s*(alexa[,!.]?\s*)?(um+|uh+|hmm+|well|i think|probably|maybe|it'?s|my favou?rite (one )?is|i like|i love)[,\s]*/gi, "").replace(/[.!?]+$/, "").trim();
+      await ctx.callTool("remember", { fact: `${name}'s ${last.askedAbout}: ${answer}`, kind: "personal" });
+      this.last = { kind: "met" };
+      const young = last.learner?.band === "early" || last.learner?.band === "primary";
+      return `${answer.charAt(0).toUpperCase() + answer.slice(1)}! ${young ? "Great choice." : "Good pick."} I'll remember that. ${young ? `Want to hear a story, or play a quick learning game?` : `So, what are you studying right now? You can share your notes, or just name a topic.`}`;
+    }
+
+    // --- parent mode: a parent introduces themselves and their child
+    const parentIntro = raw.match(/\b(?:i'?m|i am|this is)\s+([A-Za-z]+),?\s+([A-Za-z]+)'s\s+(mom|mum|mother|dad|father|parent|grandma|grandmother|grandpa|grandfather|aunt|auntie|uncle|guardian)\b/i)
+      ?? raw.match(/\b(?:i'?m|i am)\s+([A-Za-z]+)'s\s+(mom|mum|mother|dad|father|parent|grandma|grandpa|guardian)\b/i);
+    if (parentIntro) {
+      const [pname, child, rel] = parentIntro.length === 4 ? [parentIntro[1], parentIntro[2], parentIntro[3]] : [parentIntro[2], parentIntro[1], parentIntro[2]];
+      this.parent = { name: pname, relation: rel, child };
+    }
+    const childRef = this.parent?.child;
+    if (this.parent && childRef && !/\b(record|clone|voice|story|message|school|classroom|homework|assignments?|due)\b/.test(t)) {
+      const c = childRef[0].toUpperCase() + childRef.slice(1);
+      if (/\bhow('?s| is) \w+ doing\b|\bprogress\b|\breport\b|\bhow did (he|she|they)\b/.test(t)) return say(await call("parent_overview", { child: c }));
+      const info = parseIntro(raw.replace(/\b(he|she|they)'?s\b/gi, "I'm").replace(/\b(he|she|they) (loves?|likes?|enjoys?)\b/gi, "I love"));
+      const notes = (raw.match(/\b(?:he|she|they)\s+(?:gets|is|struggles|finds|can be|has trouble|hates|forgets|panics)[^.!?]*/gi) ?? []).map((n) => n.trim());
+      const age = Number(t.match(/\b(?:he'?s|she'?s|they'?re|is|aged?)\s+(\d{1,2})\b/)?.[1] ?? info?.age ?? NaN);
+      if (parentIntro || info?.level || info?.interests || Number.isFinite(age)) {
+        return say(
+          await call("parent_setup", {
+            parent_name: this.parent.name === this.parent.relation ? this.parent.relation : this.parent.name,
+            relation: this.parent.relation,
+            child: c,
+            ...(Number.isFinite(age) ? { age } : {}),
+            ...(info?.level ? { level: info.level } : {}),
+            ...(info?.interests?.length ? { interests: info.interests } : {}),
+            ...(notes.length ? { notes } : {}),
+            ...(info?.exam_title ? { exam_title: info.exam_title, exam_subject: info.exam_subject, exam_in_days: info.exam_in_days } : {}),
+          }),
+        );
+      }
+      if (notes.length) return say(await call("parent_note", { child: c, note: notes[0], parent_name: this.parent.name }));
+    }
+    const overview = t.match(/\bhow('?s| is) ([a-z]+) doing\b/);
+    if (overview) return say(await call("parent_overview", { child: overview[2][0].toUpperCase() + overview[2].slice(1) }));
+
+    // --- moods adapt today's session
+    if (/^(i'?m|i am|feeling|i feel)\s+(so |really |super |a bit |kinda |very )?(tired|sleepy|exhausted|stressed|anxious|nervous|worried|bored|overwhelmed|happy|excited|great|pumped)\b/.test(t)) {
+      return say(await call("remember", { fact: raw, kind: "mood" }));
+    }
+
+    // --- school (read-only)
+    if (/\b(connect|link|add|sync up)\b.*\b(school|classroom|classes)\b/.test(t) && !/\bdis(connect)?\b/.test(t)) {
+      const forChild = t.match(/\b([a-z]+)'s (school|classroom|classes)\b/)?.[1];
+      const learner = forChild && forChild !== "my" ? forChild[0].toUpperCase() + forChild.slice(1) : undefined;
+      return say(await call("connect_school", { ...(learner ? { learner } : {}), ...(this.parent ? { parent_name: this.parent.name } : {}) }));
+    }
+    if (/\b(disconnect|unlink|remove)\b.*\b(school|classroom)\b/.test(t)) return say(await call("disconnect_school", {}));
+    if (/\b(sync|refresh|update)\b.*\b(school|classes|classroom|assignments)\b/.test(t)) return say(await call("sync_school", {}));
+    if (/\b(homework|assignments?|what'?s due|what is due|due this week|anything due|coursework)\b/.test(t)) {
+      const forChild = t.match(/\b(?:does|has) ([a-z]+) (?:have|got)\b/)?.[1] ?? t.match(/\b([a-z]+)'s (homework|assignments)\b/)?.[1];
+      return say(await call("school_homework", forChild && forChild !== "my" ? { learner: forChild[0].toUpperCase() + forChild.slice(1) } : {}));
+    }
+
+    // --- parent story voices (only when the server has them enabled)
+    const voiceTools = ctx.mcp.tools.some((x) => x.name === "create_parent_voice");
     const REL = /\b(mom|mum|mommy|mummy|mother|amma|dad|daddy|father|papa|grandma|granny|nani|dadi|grandpa|nana|dada|auntie|aunt|uncle)\b/;
     const voiceRef = t.match(/\bin (my|[a-z]+)'?s? (?:own )?voice\b/)?.[1];
-    if (/\b(story voices?|my voice|(\w+)'?s voice)\b/.test(t) && /\b(delete|remove|forget|erase)\b/.test(t)) {
+    if (voiceTools && /\b(story voices?|my voice|(\w+)'?s voice)\b/.test(t) && /\b(delete|remove|forget|erase)\b/.test(t)) {
       return say(await call("parent_voice", { action: "delete", ...(voiceRef || t.match(REL) ? { voice: (t.match(REL)?.[1] ?? voiceRef)! } : {}) }));
     }
-    if (/\b(story voices?|my voice|(\w+)'?s voice)\b/.test(t) && /\b(pause|stop using|turn off)\b/.test(t)) {
+    if (voiceTools && /\b(story voices?|my voice|(\w+)'?s voice)\b/.test(t) && /\b(pause|stop using|turn off)\b/.test(t)) {
       return say(await call("parent_voice", { action: "pause", ...(t.match(REL) ? { voice: t.match(REL)![1] } : {}) }));
     }
-    if (/\b(story voices?|my voice|(\w+)'?s voice)\b/.test(t) && /\b(resume|turn (it )?back on|unpause|turn on)\b/.test(t)) {
+    if (voiceTools && /\b(story voices?|my voice|(\w+)'?s voice)\b/.test(t) && /\b(resume|turn (it )?back on|unpause|turn on)\b/.test(t)) {
       return say(await call("parent_voice", { action: "resume", ...(t.match(REL) ? { voice: t.match(REL)![1] } : {}) }));
     }
-    if (/\bwhat (story )?voices\b|\blist (the )?(story )?voices\b|\bstory voices\b$/.test(t)) return say(await call("parent_voice", { action: "list" }));
-    if (/\b(record|clone|create|set up|setup|save|make|add)\b.*\bvoice\b/.test(t) && !/\bstory about\b/.test(t)) {
+    if (voiceTools && /\bwhat (story )?voices\b|\blist (the )?(story )?voices\b|\bstory voices\b$/.test(t)) return say(await call("parent_voice", { action: "list" }));
+    if (voiceTools && /\b(record|clone|create|set up|setup|save|make|add)\b.*\bvoice\b/.test(t) && !/\bstory about\b/.test(t)) {
       const name = raw.match(/\b(?:i'?m|i am|this is|my name is)\s+([A-Z][a-z]+)\b/i)?.[1];
       const relation = t.match(REL)?.[1];
       const children = t.match(/\bfor ([a-z]+(?:(?:,| and) [a-z]+)*)\b/)?.[1]?.split(/,| and /).map((x) => x.trim()).filter((x) => x && !/^(bedtime|stories|story|my|the|kids?|children)$/.test(x));
       if (!name && !relation) return "Sure. Whose voice is it? Tell me your name, and whether the kids call you Mom, Dad, or something else.";
       return say(await call("create_parent_voice", { parent_name: name ?? relation!, ...(relation ? { relation } : {}), ...(children?.length ? { children: children.map((c) => c[0].toUpperCase() + c.slice(1)) } : {}) }));
     }
-    if (/\b(leave|send|record|write)\b.*\b(good ?night |goodnight )?message\b/.test(t)) {
+    if (voiceTools && /\b(leave|send|record|write)\b.*\b(good ?night |goodnight )?message\b/.test(t)) {
       const to = t.match(/\bfor ([a-z]+)\b/)?.[1] ?? t.match(/\bto ([a-z]+)\b/)?.[1];
       const from = t.match(/\bfrom ([a-z]+)\b/)?.[1] ?? t.match(REL)?.[1];
       // The parent's exact words: everything after ":" or "saying" / "that says".
@@ -154,7 +247,7 @@ export class OfflineAgent implements VoiceAgent {
       if (!text) return `What would you like it to say? Start with "saying", and I'll keep your exact words.`;
       return say(await call("voice_message", { action: "leave", to: to[0].toUpperCase() + to.slice(1), ...(from ? { from } : {}), text: text.trim().replace(/^["“]|["”]$/g, "") }));
     }
-    if (/\b(any|my|new|play|read)\b.*\bmessages?\b/.test(t) && !/\bleave\b/.test(t)) {
+    if (voiceTools && /\b(any|my|new|play|read)\b.*\bmessages?\b/.test(t) && !/\bleave\b/.test(t)) {
       const forName = t.match(/\bfor ([a-z]+)\b/)?.[1];
       const to = (forName && !/^(me|us|myself)$/.test(forName) ? forName : undefined) ?? raw.match(/\b(?:i'?m|it'?s|this is)\s+([A-Z][a-z]+)\b/i)?.[1] ?? last?.child?.name ?? this.learnerName;
       if (!to) return "Whose messages should I play?";
@@ -177,6 +270,70 @@ export class OfflineAgent implements VoiceAgent {
       const interests = t.match(/\b(?:loves?|likes?|is into|into)\s+([^.;]+)/)?.[1]?.split(/,|\band\b/).map((x) => x.trim()).filter(Boolean);
       const voice = voiceRef && voiceRef !== "my" ? voiceRef : voiceRef === "my" ? "my" : undefined;
       return say(await call("tell_story", { child: child[0].toUpperCase() + child.slice(1), lesson, ...(Number.isFinite(age) ? { age } : {}), ...(interests?.length ? { interests } : {}), ...(voice ? { voice: voice === "my" ? "" : voice } : {}) }));
+    }
+
+    // --- the daily routine
+    if (/\b(prepare my day|plan my day|what did you do (overnight|while i was away)|what('s| is) (my )?plan (for )?today)\b/.test(t)) return say(await call("prepare_my_day"));
+
+    // --- research beyond the notes
+    if (/\b(research|beyond (my|the) notes|tell me more about|real[- ]world (uses|examples))\b/.test(t)) {
+      const topic = t.match(/\b(?:research|more about)\s+(.+?)(?:\s+beyond (?:my|the) notes)?$/)?.[1];
+      return say(await call("research_topic", topic ? { topic } : {}));
+    }
+
+    // --- the learner corrects us
+    const callMe = raw.match(/\b(?:please |just )?call me ([A-Za-z][\w'-]*(?: [A-Z][\w.'-]*)?)/i);
+    if (callMe) return say(await call("learn_from_feedback", { lesson: "", preferred_name: callMe[1] }));
+    if (/\b(that was right|i was right|my answer was right|that'?s not wrong|check (it|that|my answer) again|recheck)\b/.test(t)) return say(await call("recheck_answer", { reason: raw }));
+
+    // --- parent: online games on/off for a child
+    const og = t.match(/\b(allow|turn on|switch on|enable|turn off|switch off|disable|block|stop)\b.*\bonline (?:games?|study together)\b.*\bfor ([a-z]+)\b/);
+    if (og) return say(await call("parent_settings", { child: og[2][0].toUpperCase() + og[2].slice(1), online_games: /^(allow|turn on|switch on|enable)$/.test(og[1]) ? "allowed" : "off" }));
+
+    // --- Study Together across homes (invite code)
+    const joinCode = t.match(/\bjoin (?:the |a |my friend'?s |their )?(?:game|battle|quiz)?\s*(?:code )?([a-z]+(?:[ -]?(?:\d|one|two|three|four|five|six|seven|eight|nine|zero)){1,2}|[a-z]+[ -]?\d{2})\b/);
+    if (joinCode && !/\b(join (?:me|us|in))\b/.test(t)) return say(await call("join_online_game", { code: digitsOf(joinCode[1]) }));
+    if (last?.kind === "online_game" && last.status !== "done") {
+      if (last.status === "lobby" && /\b(start|begin|let'?s go|let'?s play|everyone'?s (in|here))\b/.test(t)) return say(await call("online_game_action", { action: "start" }));
+      if (/\b(leave|quit|i'?m out)\b/.test(t)) return say(await call("online_game_action", { action: last.isHost ? "end" : "leave" }));
+      if (/^(stop|end|game over)\b|\bend the game\b/.test(t)) return say(await call("online_game_action", { action: "end" }));
+      if (/\b(scores?|who'?s winning|scoreboard|status|what'?s the code|who'?s (in|here))\b/.test(t)) return say(await call("online_game_action", { action: "status" }));
+      if (last.status === "playing" && last.yourTurn) {
+        if (/^(hint|give me a hint|a hint|clue)\b|\bhint\b/.test(t)) return say(await call("online_game_action", { action: "hint" }));
+        if (/^(skip|pass|i don'?t know|no idea|dunno)\b/.test(t)) return say(await call("online_game_action", { action: "skip" }));
+        if (/^(repeat|again|say (that|it) again|what was the question)\b/.test(t)) return say(await call("online_game_action", { action: "status" }).then((r) => ({ ...r, speech: last.speech })));
+        return say(await call("online_game_answer", { answer: raw }));
+      }
+      if (last.status === "playing" && /^(true|false|yes|no|[a-d]\b)/.test(t)) return `Hold on, it's ${last.currentPlayer}'s turn at their home.`;
+    }
+    if (/\b(online|other homes?|another home|their (own )?homes?|remote(ly)?|over the internet|from (his|her|their) house)\b/.test(t) && /\b(game|quiz|battle|play|study together|compete)\b/.test(t)) {
+      const topic = t.match(/\b(?:on|about) ([a-z ]+?)(?: with | online|$)/)?.[1];
+      return say(await call("start_online_game", topic ? { topic } : {}));
+    }
+
+    // --- Study Together: a game in progress takes every answer
+    if (last?.kind === "group_question") {
+      if (/^(hint|give me a hint|a hint|clue)\b|\bhint\b/.test(t)) return say(await call("group_action", { action: "hint" }));
+      if (/^(skip|pass|i don'?t know|no idea|dunno)\b/.test(t)) return say(await call("group_action", { action: "skip" }));
+      if (/\b(scores?|who'?s winning|scoreboard)\b/.test(t)) return say(await call("group_action", { action: "scores" }));
+      if (/^(repeat|again|say (that|it) again|what was the question)\b/.test(t)) return say(await call("group_action", { action: "repeat" }));
+      if (/^(stop|end|quit|game over|that'?s enough)\b|\bend the game\b/.test(t)) return say(await call("group_action", { action: "end" }));
+      return say(await call("group_answer", { answer: raw }));
+    }
+    const playWith = t.match(/\b(?:play|quiz|compete|battle|study|game)\b.*\bwith ([a-z]+(?:(?:,| and|,? and) [a-z]+)*)/)?.[1];
+    if ((playWith && /\b(play|quiz|compete|battle|game|together|race)\b/.test(t)) || /\b(study together|quiz battle)\b/.test(t)) {
+      const players = (playWith ?? "")
+        .split(/,| and /)
+        .map((x) => x.trim())
+        .filter((x) => x && !/^(me|my|friends?|family|everyone|us|them)$/.test(x))
+        .map((x) => x[0].toUpperCase() + x.slice(1));
+      if (!players.length) return "Fun! Who's playing? Tell me everyone's names.";
+      this.lastPlayers = players;
+      const topic = t.match(/\b(?:on|about) ([a-z ]+?)(?: with |$)/)?.[1];
+      return say(await call("start_group_quiz", { players, ...(topic ? { topic } : {}) }));
+    }
+    if (/^(rematch|again|play again|one more (game|round))\b/.test(t) && last?.kind === "group_summary" && this.lastPlayers) {
+      return say(await call("start_group_quiz", { players: this.lastPlayers }));
     }
 
     // --- an open quiz: almost everything is an answer
@@ -208,10 +365,19 @@ export class OfflineAgent implements VoiceAgent {
     if (/\b(help me study|let'?s study|study time|what should we do)\b/.test(t)) return say(await call("get_today", {}));
     const today = last?.kind === "welcome" || !last ? undefined : last;
     if (/\b(set me up|setup form|use the form|sign me up)\b/.test(t)) return say(await call("set_up_learner", { use_form: true }));
-    if (intro?.name && (intro.level || intro.age || intro.interests || last?.kind === "welcome" || !last)) {
+    if (intro?.name && !intro.level && !intro.age && !intro.interests && !parentIntro) {
+      const r = structured(await ctx.callTool("switch_learner", { name: intro.name }));
+      if (r.kind !== "error") {
+        this.last = r;
+        if (r.learner?.name) this.learnerName = r.learner.name;
+        this.parent = undefined;
+        return say(r);
+      }
+    }
+    if (intro?.name && !parentIntro && (intro.level || intro.age || intro.interests || last?.kind === "welcome" || !last)) {
       return say(await call("set_up_learner", intro));
     }
-    if (intro?.name && /^(it'?s|this is|i'?m)\s+\w+(\s+(now|here))?$/.test(t)) {
+    if (intro?.name && /^((hi|hello|hey)[,!]?\s+)?(it'?s|this is|i'?m)\s+\w+(\s+(now|here))?$/.test(t)) {
       const r = structured(await ctx.callTool("switch_learner", { name: intro.name }));
       if (r.kind !== "error") {
         this.last = r;

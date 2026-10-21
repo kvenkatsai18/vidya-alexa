@@ -7,14 +7,14 @@
   "main": "src/index.ts",
   "scripts": {
     "start": "tsx src/index.ts",
-    "test": "node --import tsx --test test/*.test.ts"
+    "test": "BUDDY_LLM=fixture BUDDY_TTS=browser node --import tsx --test test/*.test.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.1149.0",
     "@modelcontextprotocol/sdk": "1.32.1",
     "express": "^5.2.1",
-    "zod": "^3.25.0",
-    "@anthropic-ai/sdk": "^0.133.0",
-    "@anthropic-ai/bedrock-sdk": "^0.34.4"
+    "zod": "^3.25.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",

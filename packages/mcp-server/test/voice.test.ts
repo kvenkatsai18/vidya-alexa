@@ -7,6 +7,11 @@ import { Mentor } from "../src/domain/mentor.ts";
 import { Store } from "../src/domain/store.ts";
 import { consentMatches, consentPhrase, VoiceNotConfiguredError, VoiceStudio, voiceProviderFromEnv, wavSeconds } from "../src/domain/voice.ts";
 import { createStudyBuddyServer, enrollmentNotifiers } from "../src/server.ts";
+import { useOfflineEngine } from "../src/domain/generate.ts";
+import { offlineEngine } from "./fixtures/offline-engine.ts";
+
+// Tests use scripted stand-ins for the model; the product generates everything live.
+useOfflineEngine(offlineEngine);
 
 type R = Record<string, any>;
 
@@ -34,7 +39,7 @@ async function connect() {
   const store = new Store({ dir: null });
   const mentor = new Mentor(store);
   const studio = new VoiceStudio(mentor, voiceProviderFromEnv());
-  const server = createStudyBuddyServer(mentor, { llm: null, studio, publicUrl: "http://localhost:8787" });
+  const server = createStudyBuddyServer(mentor, { llm: null, studio, publicUrl: "http://localhost:8787", voiceCloning: true });
   const [a, b] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: "test", version: "1" }, { capabilities: { elicitation: { form: {}, url: {} } } });
   const elicited: R[] = [];

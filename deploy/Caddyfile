@@ -1,0 +1,12 @@
+# The MCP endpoint (what an AI assistant connects to). Protected by BUDDY_ACCESS_TOKEN in the app.
+{$MCP_DOMAIN} {
+	reverse_proxy app:8787
+}
+
+# The demo device page. Password-protected so strangers can't spend your Bedrock credits.
+{$DEVICE_DOMAIN} {
+	basic_auth {
+		{$DEVICE_USER} {$DEVICE_PASSWORD_HASH}
+	}
+	reverse_proxy app:5173
+}

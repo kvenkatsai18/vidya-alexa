@@ -31,6 +31,20 @@ export function bandFor(level: string | undefined, age: number | undefined): Lev
   return "high";
 }
 
+/**
+ * An age that clearly doesn't fit the stated class is most likely a guess (an assistant filling in a
+ * field the person never mentioned), so it's ignored and the class decides. Age matters: under-13 rules
+ * (parent visibility, online games) depend on it.
+ */
+export function plausibleAge(level: string | undefined, age: number): number | undefined {
+  const l = (level ?? "").toLowerCase();
+  const grade = gradeNumber(l);
+  if (grade !== undefined && (age < grade + 3 || age > grade + 9)) return undefined;
+  const band = bandFor(level, undefined);
+  if (level && band === "college" && age < 15) return undefined;
+  return age;
+}
+
 export function gradeNumber(level: string): number | undefined {
   const l = level.toLowerCase();
   const m =
@@ -109,7 +123,7 @@ export function voiceGuideText(name: string, band: LevelBand, interests: string[
     `You're talking with ${name}, a ${g.label} learner.`,
     `Tone: ${g.tone}`,
     `Language: ${g.vocabulary}`,
-    interests.length ? `Use examples from what ${name} loves: ${interests.join(", ")}.` : "",
+    interests.length ? `When an example helps, take it from what ${name} loves: ${interests.join(", ")}. Don't force it into everything.` : "",
     ...extras,
   ]
     .filter(Boolean)

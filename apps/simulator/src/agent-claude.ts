@@ -1,7 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { AnthropicBedrockMantle } from "@anthropic-ai/bedrock-sdk";
 import type { CallToolResult, CreateMessageRequest, CreateMessageResult } from "@modelcontextprotocol/sdk/types.js";
-import type { AgentContext, VoiceAgent } from "./agent.ts";
+import { DEVICE_CONTEXT, DEVICE_RULES, type AgentContext, type VoiceAgent } from "./agent.ts";
 import type { LoadedSkill } from "./skill.ts";
 
 type MessageParam = Anthropic.Beta.Messages.BetaMessageParam;
@@ -9,7 +8,6 @@ type ToolParam = Anthropic.Beta.Messages.BetaTool;
 type Effort = "low" | "medium" | "high" | "xhigh" | "max";
 
 export interface ClaudeAgentOptions {
-  provider: "anthropic" | "bedrock";
   model: string;
   effort: Effort;
   skills: LoadedSkill[];
@@ -17,30 +15,17 @@ export interface ClaudeAgentOptions {
 
 const MAX_TOOL_ROUNDS = 8;
 
-const DEVICE_CONTEXT = `## This device
-You are running as an Alexa+ add-on on a smart display in the learner's room (simulated in a web page).
-- Your final reply is spoken aloud by text-to-speech and shown as a caption. Talk like a person in a live conversation: react to what they said, use contractions and short sentences, and end by handing the turn back. Plain sentences only: no markdown, bullet points, emoji, or IDs. Never read card text verbatim.
-- Study Buddy tool results render as cards on the screen automatically. Don't describe the card.
-- Taps on card buttons arrive as ordinary user messages.
-- Notes the learner shares from their phone are added for you and announced as context.
-- When a tool asks the user to confirm something or fill in a form, the device shows it. You'll get the outcome back as the tool result.
-Latency-sensitive; begin your visible answer immediately.`;
 
-/** Claude as the Alexa+ "brain": the Messages API with the Study Buddy MCP tools, on the Anthropic API or Amazon Bedrock. */
+
+/** Claude via the Anthropic API as the device's "brain" (the alternative to Amazon Nova on Bedrock). */
 export class ClaudeAgent implements VoiceAgent {
   readonly label: string;
-  private client: Anthropic | AnthropicBedrockMantle;
+  private client = new Anthropic();
   private history: MessageParam[] = [];
   private notes: string[] = [];
 
   constructor(private opts: ClaudeAgentOptions) {
-    if (opts.provider === "bedrock") {
-      this.client = new AnthropicBedrockMantle({ awsRegion: process.env.AWS_REGION ?? "us-east-1" });
-      this.label = `Claude (${opts.model}) on Amazon Bedrock`;
-    } else {
-      this.client = new Anthropic();
-      this.label = `Claude (${opts.model}) via Anthropic API`;
-    }
+    this.label = `Claude (${opts.model}) via Anthropic API`;
   }
 
   reset() {
@@ -79,11 +64,11 @@ export class ClaudeAgent implements VoiceAgent {
   }
 
   private modelId() {
-    return this.opts.provider === "bedrock" && !this.opts.model.startsWith("anthropic.") ? `anthropic.${this.opts.model}` : this.opts.model;
+    return this.opts.model;
   }
 
   private system(ctx: AgentContext): string {
-    return [...this.opts.skills.map((sk) => sk.instructions), DEVICE_CONTEXT, ctx.mcp.instructions ? `## Study Buddy server instructions\n${ctx.mcp.instructions}` : ""]
+    return [...this.opts.skills.map((sk) => sk.instructions), DEVICE_CONTEXT, ctx.mcp.instructions ? `## Study Buddy server instructions\n${ctx.mcp.instructions}` : "", DEVICE_RULES]
       .filter(Boolean)
       .join("\n\n");
   }
@@ -97,11 +82,8 @@ export class ClaudeAgent implements VoiceAgent {
   }
 
   private create(params: Anthropic.Beta.Messages.MessageCreateParamsNonStreaming) {
-    if (this.opts.provider === "anthropic") {
-      // Server-side refusal fallback (Claude API only): a declined request is re-run on Anthropic's recommended model.
-      return (this.client as Anthropic).beta.messages.create({ ...params, betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" });
-    }
-    return (this.client as AnthropicBedrockMantle).beta.messages.create(params);
+    // Server-side refusal fallback: a declined request is re-run on Anthropic's recommended model.
+    return this.client.beta.messages.create({ ...params, betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" });
   }
 
   async turn(ctx: AgentContext, text: string): Promise<string> {
@@ -125,7 +107,7 @@ export class ClaudeAgent implements VoiceAgent {
       this.history.push({ role: "assistant", content: response.content as MessageParam["content"] });
 
       if (response.stop_reason === "refusal") {
-        return "Sorry, I can't help with that one. I can help with repairs, parts, and home maintenance.";
+        return "Sorry, I can't help with that one. I can help you study, quiz you, or plan for a test.";
       }
       if (response.stop_reason === "pause_turn") continue;
 

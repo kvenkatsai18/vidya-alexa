@@ -1,0 +1,24 @@
+# One small server: the app plus Caddy for automatic HTTPS (Let's Encrypt).
+# Usage (on the server, from the repo root): docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
+services:
+  app:
+    build: ..
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - buddy-data:/data
+  caddy:
+    image: caddy:2.8
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    env_file: .env
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on:
+      - app
+volumes:
+  buddy-data:
+  caddy-data:

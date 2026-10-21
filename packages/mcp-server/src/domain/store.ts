@@ -7,6 +7,11 @@ import type { State } from "./types.ts";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_DIR = path.resolve(here, "../../../../.data");
 
+/** Root folder for all household data (each home gets its own subfolder; the default home uses the root). */
+export function dataRoot(): string {
+  return process.env.BUDDY_DATA_DIR ?? DEFAULT_DIR;
+}
+
 /**
  * Durable household memory. Everything a returning learner expects Study Buddy to remember
  * (profile, interests, what clicked, mistakes, review schedule, exams, stories) lives here, so a

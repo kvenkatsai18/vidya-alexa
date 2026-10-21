@@ -1,14 +1,29 @@
-import { CELL_DIVISION_DECK, type ConceptSeed } from "../../content/cell-division.deck.ts";
 import { GUIDES, voiceGuideText } from "./levels.ts";
 import { parseJson, type Llm } from "./llm.ts";
-import type { Concept, ExplainStyle, Learner, Question } from "./types.ts";
+import type { Concept, ConceptSeed, ExplainStyle, Learner, Question, Source } from "./types.ts";
 
 /**
- * Every generator has two paths: an LLM path (personalized, works on any material) and an
- * offline path (prepared content + heuristics) so the experience still runs without a model.
+ * Everything a learner sees is generated live by the model (MCP sampling or the server's own
+ * Amazon Nova on Bedrock). There is no pre-made content: with no model connected, generation
+ * says so plainly. Grading multiple choice and true/false is exact, so it never needs a model.
  */
 
 export class NeedsLlmError extends Error {}
+
+const NO_AI = "I need my AI connection for that, and it isn't set up yet. Connect Amazon Bedrock (AWS credentials) and try again.";
+const AI_DOWN = "I couldn't reach my AI just now. Please try that again in a moment.";
+
+/** Scripted stand-ins for the model, used only by the automated tests (test/fixtures/offline-engine.ts). */
+export interface OfflineEngine {
+  deckFromMaterial(learner: Learner, title: string, text: string): DeckDraft;
+  deckFromTopic(learner: Learner, topic: string): DeckDraft | null;
+  explain(learner: Learner, concept: Concept, style: ExplainStyle, misconceptions: string[]): Explanation;
+  story(child: Learner, lesson: string, minutes: number): StoryDraft;
+}
+let testEngine: OfflineEngine | null = null;
+export function useOfflineEngine(engine: OfflineEngine | null) {
+  testEngine = engine;
+}
 
 const MAX_MATERIAL_CHARS = 60_000;
 
@@ -17,11 +32,39 @@ Everything you write may be spoken aloud by text-to-speech: no markdown, no emoj
 Be accurate. Never invent facts that contradict the learner's material. Reply with a single JSON object only.`;
 
 function learnerContext(l: Learner, extras: string[] = []): string {
-  return voiceGuideText(l.name, l.band, l.interests, extras);
+  const lessons = (l.lessons ?? []).map((x) => x.text);
+  return voiceGuideText(l.name, l.band, l.interests, [...extras, ...(lessons.length ? [`${l.name} corrected you before; always follow these: ${lessons.join("; ")}.`] : [])]);
+}
+
+/** The learner says a grade was unfair: check again, honestly, and say what to learn from it. */
+export async function regrade(llm: Llm | null, learner: Learner, concept: Concept, q: Question, answer: string, reason: string): Promise<{ overturned: boolean; score: number; feedback: string; lesson?: string }> {
+  if (!llm) throw new NeedsLlmError(NO_AI);
+  try {
+    const out = parseJson<any>(
+      await llm.complete({
+        purpose: "Re-check a grade the learner disputes",
+        system: BASE_SYSTEM,
+        maxTokens: 600,
+        temperature: 0,
+        prompt: `You graded this answer as wrong or partly wrong, and the learner says that was a mistake. Re-check it honestly and carefully, by meaning, with the full concept in mind. Admit it if you were wrong; don't give in if you weren't. ${learnerContext(learner)}
+Concept: ${concept.title}. ${concept.summary} Key points: ${concept.keyPoints.join(" | ")}
+Question: ${q.prompt}
+Model answer: ${q.answer}
+Learner's answer: "${answer}"
+${reason ? `Learner's reason: "${reason}"` : ""}
+Return JSON: {"overturned": boolean (true if their answer deserves credit), "score": number 0-1 (the fair score), "feedback": string (spoken, 1-2 sentences: if overturned, own the mistake simply; if not, explain kindly why), "lesson": string (if overturned: one instruction for grading this learner fairly next time, e.g. "Accept S phase as where DNA is copied"; else "")}`,
+      }),
+    );
+    if (typeof out?.overturned !== "boolean") throw new Error("bad shape");
+    return { overturned: out.overturned, score: Math.max(0, Math.min(1, Number(out.score) || 0)), feedback: String(out.feedback ?? ""), lesson: out.lesson || undefined };
+  } catch (e) {
+    log(e, "re-grade");
+    throw new NeedsLlmError(AI_DOWN);
+  }
 }
 
 function log(err: unknown, what: string) {
-  console.error(`[study-buddy] ${what} failed, using offline fallback: ${(err as Error).message}`);
+  console.error(`[study-buddy] ${what} failed: ${(err as Error).message}`);
 }
 
 // ------------------------------------------------------------------ decks
@@ -31,7 +74,7 @@ export interface DeckDraft {
   subject: string;
   concepts: ConceptSeed[];
   truncated: boolean;
-  source: "llm" | "prepared" | "heuristic";
+  source: "llm" | "fixture";
 }
 
 const DECK_SCHEMA = `{"title": string, "subject": string, "concepts": [{"title": string, "summary": string (1-2 sentences), "keyPoints": string[] (3-5), "confusableWith": string[] (terms students mix this up with, may be empty), "flashcards": [{"front": string, "back": string}] (2), "questions": [{"type": "mcq", "prompt": string, "options": string[4], "answer": string (exactly one of options), "explanation": string}, {"type": "short", "prompt": string, "answer": string, "explanation": string}, {"type": "truefalse", "prompt": string (starts with "True or false:"), "answer": "True" | "False", "explanation": string}]}]}`;
@@ -42,13 +85,13 @@ function validDeck(d: any): d is { title: string; subject: string; concepts: Con
 }
 
 export async function deckFromMaterial(llm: Llm | null, learner: Learner, title: string, text: string): Promise<DeckDraft> {
-  if (CELL_DIVISION_DECK.match.test(`${title}\n${text.slice(0, 400)}`) && text.length < 12_000 && /PMAT|crossing over/i.test(text)) {
-    // The bundled demo notes: use the prepared deck (instant, works offline).
-    return { title: CELL_DIVISION_DECK.title, subject: CELL_DIVISION_DECK.subject, concepts: CELL_DIVISION_DECK.concepts, truncated: false, source: "prepared" };
+  if (!llm) {
+    if (testEngine) return testEngine.deckFromMaterial(learner, title, text);
+    throw new NeedsLlmError(NO_AI);
   }
   const truncated = text.length > MAX_MATERIAL_CHARS;
   const body = truncated ? text.slice(0, MAX_MATERIAL_CHARS) : text;
-  if (llm) {
+  {
     try {
       const out = parseJson<any>(
         await llm.complete({
@@ -57,6 +100,7 @@ export async function deckFromMaterial(llm: Llm | null, learner: Learner, title:
           maxTokens: 8000,
           prompt: `Turn these study notes into a study deck for this learner. ${learnerContext(learner)}
 Pitch every question at their level (${GUIDES[learner.band].questionStyle}). Use 4 to 8 concepts, in the order they appear in the notes. Ground everything in the notes.
+The deck "title" is the topic's own name (for example "Cell division"), never words like "mastery", "study deck", "notes" or "unit".
 Notes title: ${title}
 <notes>
 ${body}
@@ -68,27 +112,36 @@ Return JSON with this shape: ${DECK_SCHEMA}`,
       throw new Error("deck JSON had the wrong shape");
     } catch (e) {
       log(e, "deck generation");
+      throw new NeedsLlmError(AI_DOWN);
     }
   }
-  return { ...heuristicDeck(title, body), truncated, source: "heuristic" };
 }
 
 export async function deckFromTopic(llm: Llm | null, learner: Learner, topic: string, maxConcepts = 4): Promise<DeckDraft> {
-  if (CELL_DIVISION_DECK.match.test(topic)) {
-    return { title: CELL_DIVISION_DECK.title, subject: CELL_DIVISION_DECK.subject, concepts: CELL_DIVISION_DECK.concepts, truncated: false, source: "prepared" };
+  if (!llm) {
+    const d = testEngine?.deckFromTopic(learner, topic);
+    if (d) return d;
+    throw new NeedsLlmError(NO_AI);
   }
-  if (!llm) throw new NeedsLlmError(`I need my AI connection to teach a brand-new topic like ${topic}. You can share your notes, or try the sample biology notes.`);
-  const out = parseJson<any>(
+  let out: any;
+  try {
+    out = parseJson<any>(
     await llm.complete({
       purpose: `Build a study deck on ${topic}`,
       system: BASE_SYSTEM,
       maxTokens: 6000,
       prompt: `Build a short study deck that teaches "${topic}" to this learner. ${learnerContext(learner)}
 Use 1 to ${maxConcepts} concepts that build on each other. Pitch it at their level (${GUIDES[learner.band].questionStyle}).
+The deck "title" is the topic's own name (for example "The French Revolution" or "Cell division"), never words like "study deck", "exam" or "test".
+Each concept title names the idea itself (for example "Entropy as disorder"), never generic words like "Definition", "Introduction" or "Fundamental concept".
 Return JSON with this shape: ${DECK_SCHEMA}`,
     }),
   );
-  if (!validDeck(out)) throw new Error("deck JSON had the wrong shape");
+  } catch (e) {
+    log(e, "topic deck");
+    throw new NeedsLlmError(AI_DOWN);
+  }
+  if (!validDeck(out)) throw new NeedsLlmError(AI_DOWN);
   return { ...out, concepts: out.concepts.map(normalizeSeed), truncated: false, source: "llm" };
 }
 
@@ -111,38 +164,108 @@ function normalizeSeed(c: any): ConceptSeed {
   };
 }
 
-/** Offline: one concept per heading (or per paragraph), cloze-style cards from its sentences. */
-function heuristicDeck(title: string, text: string): Omit<DeckDraft, "truncated" | "source"> {
-  const sections: Array<{ title: string; body: string }> = [];
-  const parts = text.split(/\n(?=#{1,3}\s)/);
-  for (const p of parts) {
-    const m = p.match(/^#{1,3}\s+(.+)\n([\s\S]*)$/);
-    if (m && m[2].trim().length > 40) sections.push({ title: m[1].trim(), body: m[2].trim() });
+// ------------------------------------------------------------------ research beyond the notes
+
+export interface ResearchDraft {
+  title: string;
+  overview: string;
+  cards: Array<{ heading: string; body: string; example?: string }>;
+  sources: Source[];
+}
+
+const NO_WEB = "Research needs Amazon Nova's web search, and it isn't switched on for this account yet. I can still explain anything from your notes.";
+
+/**
+ * Two steps: Nova searches the web for what the notes don't cover (with sources), then the
+ * findings are rewritten as short cards at the learner's level, with examples from their interests.
+ */
+export async function researchTopic(researcher: Llm | null, writer: Llm | null, learner: Learner, topic: string, fromNotes: string[]): Promise<ResearchDraft> {
+  if (!researcher?.research) throw new NeedsLlmError(NO_WEB);
+  let found: { text: string; sources: Source[] };
+  try {
+    found = await researcher.research({
+      purpose: `Research ${topic}`,
+      system: "You are a careful research assistant for a student. Use web search. Prefer reliable educational, scientific and news sources. Be accurate and cite sources.",
+      maxTokens: 2500,
+      prompt: `Research "${topic}" for a ${learner.level} student (${GUIDES[learner.band].label} level).
+${fromNotes.length ? `Their notes already cover: ${fromNotes.join("; ")}. Focus on what the notes don't cover.` : ""}
+Find: 1) how it works one level deeper, 2) real-world uses and why it matters today, 3) a recent development or discovery, 4) the most common misconception and the truth, 5) one surprising fact. Plain text, short paragraphs.`,
+    });
+  } catch (e) {
+    log(e, "web research");
+    const denied = /AccessDenied|not authorized|InvokeTool/i.test((e as Error).message);
+    throw new NeedsLlmError(denied ? NO_WEB : AI_DOWN);
   }
-  if (!sections.length) {
-    text
-      .split(/\n\s*\n/)
-      .map((b) => b.trim())
-      .filter((b) => b.length > 80)
-      .slice(0, 8)
-      .forEach((b, i) => sections.push({ title: firstWords(b, 5) || `Part ${i + 1}`, body: b }));
-  }
-  const concepts: ConceptSeed[] = sections.slice(0, 8).map((s) => {
-    const sentences = s.body.replace(/\s+/g, " ").split(/(?<=[.!?])\s+/).filter((x) => x.length > 20);
-    const summary = sentences.slice(0, 2).join(" ");
+  if (!found.text.trim()) throw new NeedsLlmError(AI_DOWN);
+  const w = writer ?? researcher;
+  try {
+    const out = parseJson<any>(
+      await w.complete({
+        purpose: `Explain research on ${topic}`,
+        system: BASE_SYSTEM,
+        maxTokens: 2500,
+        prompt: `Turn this web research into 4 to 6 short cards for the learner. ${learnerContext(learner)}
+Each card: a heading, a body (at most 55 words, at their level), and one example from their own interests or everyday life. Only use facts from the research.
+Topic: ${topic}
+<research>
+${found.text.slice(0, 12_000)}
+</research>
+Return JSON: {"title": string, "overview": string (spoken, 1-2 sentences: what you found beyond their notes), "cards": [{"heading": string, "body": string, "example": string}]}`,
+      }),
+    );
+    if (!out?.title || !Array.isArray(out.cards) || !out.cards.length) throw new Error("research JSON had the wrong shape");
     return {
-      title: s.title.replace(/^[\d.]+\s*/, ""),
-      summary,
-      keyPoints: sentences.slice(0, 5),
-      confusableWith: [],
-      flashcards: [{ front: `What should you remember about ${s.title.toLowerCase()}?`, back: summary }],
-      questions: [
-        { type: "short", prompt: `In your own words, what is ${s.title.toLowerCase()}?`, answer: summary, explanation: summary },
-        ...(sentences[1] ? [{ type: "truefalse" as const, prompt: `True or false: ${lcFirst(sentences[1])}`, answer: "True", explanation: sentences[1] }] : []),
-      ],
+      title: String(out.title),
+      overview: String(out.overview ?? ""),
+      cards: out.cards.slice(0, 6).map((c: any) => ({ heading: String(c.heading ?? ""), body: String(c.body ?? ""), example: c.example ? String(c.example) : undefined })),
+      sources: found.sources,
     };
-  });
-  return { title: title || concepts[0]?.title || "My notes", subject: "General", concepts };
+  } catch (e) {
+    log(e, "research cards");
+    throw new NeedsLlmError(AI_DOWN);
+  }
+}
+
+// ------------------------------------------------------------------ fresh questions
+
+/**
+ * New questions for a concept the learner has already been quizzed on, so a second quiz isn't the
+ * same quiz. Different angles: applying the idea, "why", comparing, a real-world case.
+ */
+export async function freshQuestions(llm: Llm | null, learner: Learner, concept: Concept, count = 3): Promise<Omit<Question, "id">[]> {
+  if (!llm) return [];
+  try {
+    const out = parseJson<any>(
+      await llm.complete({
+        purpose: `Write new questions on ${concept.title}`,
+        system: BASE_SYSTEM,
+        maxTokens: 1800,
+        temperature: 0.8,
+        prompt: `Write ${count} NEW quiz questions about "${concept.title}" for this learner. ${learnerContext(learner)}
+Pitch them at their level (${GUIDES[learner.band].questionStyle}).
+They have already been asked these, so do not repeat or rephrase them:
+${concept.questions.map((q) => `- ${q.prompt}`).join("\n")}
+Use their interests only where it truly helps; don't force them into every question.
+Use different angles: applying the idea to a new situation, explaining why, comparing it with something it's often confused with (${concept.confusableWith.join(", ") || "related ideas"}), or a real-world example. Mix types. Ground every answer in these key points: ${concept.keyPoints.join(" | ")}
+Return JSON: {"questions": [{"type": "mcq", "prompt": string, "options": string[4], "answer": string (exactly one of options), "explanation": string} | {"type": "short", "prompt": string, "answer": string, "explanation": string} | {"type": "truefalse", "prompt": string (starts with "True or false:"), "answer": "True" | "False", "explanation": string}]}`,
+      }),
+    );
+    const seen = new Set(concept.questions.map((q) => q.prompt.toLowerCase().replace(/\W+/g, " ").trim()));
+    return (out?.questions ?? [])
+      .filter((q: any) => q?.prompt && q?.answer && !seen.has(String(q.prompt).toLowerCase().replace(/\W+/g, " ").trim()))
+      .filter((q: any) => q.type !== "mcq" || (Array.isArray(q.options) && q.options.length >= 2 && q.options.map(String).includes(String(q.answer))))
+      .slice(0, count)
+      .map((q: any) => ({
+        type: q.type === "mcq" || q.type === "truefalse" ? q.type : "short",
+        prompt: String(q.prompt),
+        options: Array.isArray(q.options) ? q.options.map(String) : undefined,
+        answer: String(q.answer),
+        explanation: String(q.explanation ?? ""),
+      }));
+  } catch (e) {
+    log(e, "fresh questions");
+    return [];
+  }
 }
 
 // ------------------------------------------------------------------ explanations
@@ -151,7 +274,7 @@ export interface Explanation {
   explanation: string;
   analogy?: string;
   checkQuestion: string;
-  source: "llm" | "prepared";
+  source: "llm" | "fixture";
 }
 
 const STYLE_HINT: Record<ExplainStyle, string> = {
@@ -169,10 +292,18 @@ export async function explain(
   concept: Concept,
   style: ExplainStyle,
   misconceptions: string[],
+  previous?: string,
+  request?: string,
 ): Promise<Explanation> {
-  if (llm) {
+  if (!llm) {
+    if (testEngine) return testEngine.explain(learner, concept, style, misconceptions);
+    throw new NeedsLlmError(NO_AI);
+  }
+  {
     try {
-      const words = { early: 50, primary: 70, middle: 90, high: 110, college: 140, adult: 110 }[learner.band];
+      // Spoken answers: short, like a person talking. "Simpler" is much shorter; "deeper" a bit longer.
+      const base = { early: 40, primary: 50, middle: 60, high: 70, college: 85, adult: 70 }[learner.band];
+      const words = style === "simpler" ? Math.round(base * 0.6) : style === "deeper" ? base + 40 : base;
       const out = parseJson<any>(
         await llm.complete({
           purpose: `Explain ${concept.title}`,
@@ -181,47 +312,20 @@ export async function explain(
           prompt: `Explain this concept to the learner. ${learnerContext(learner, learner.stylesThatWorked.length ? [`Styles that worked before: ${learner.stylesThatWorked.join(", ")}.`] : [])}
 Style: ${STYLE_HINT[style]}
 ${misconceptions.length ? `They previously got this wrong: ${misconceptions.join("; ")}. Gently clear that up.` : ""}
+${previous ? `You just explained it like this and they didn't get it, or asked for another way: "${previous.slice(0, 600)}". Use a completely different angle and a different example; don't reuse that analogy or wording.` : ""}
+${request ? `They asked for: "${request.slice(0, 200)}". Do exactly that.` : ""}
 Concept: ${concept.title}
 Summary: ${concept.summary}
 Key points: ${concept.keyPoints.join(" | ")}
-Return JSON: {"explanation": string (spoken, about ${words} words), "analogy": string (one sentence naming the analogy used, or ""), "checkQuestion": string (one quick question to check understanding)}`,
+Return JSON: {"explanation": string (spoken, at most ${words} words, plain sentences), "analogy": string (a 2-4 word name for the analogy used, or ""), "checkQuestion": string (one short, natural question to check understanding, or "" if it would feel forced)}`,
         }),
       );
       if (out?.explanation) return { explanation: String(out.explanation), analogy: out.analogy || undefined, checkQuestion: String(out.checkQuestion || concept.flashcards[0]?.front || ""), source: "llm" };
     } catch (e) {
       log(e, "explanation");
     }
+    throw new NeedsLlmError(AI_DOWN);
   }
-  const key = interestKey(learner, concept.analogies);
-  const analogy = concept.analogies?.[key] ?? concept.analogies?.default;
-  let explanation: string;
-  if (style === "step_by_step" || !analogy) explanation = `${concept.summary} The key points: ${concept.keyPoints.slice(0, 4).map(lcFirst).join("; ")}.`;
-  else if (style === "simpler") explanation = `Here's the simple version. ${concept.summary}`;
-  else explanation = analogy;
-  if (misconceptions.length && concept.confusableWith.length) {
-    explanation += ` And remember, last time ${misconceptions[0].charAt(0).toLowerCase()}${misconceptions[0].slice(1)}, so watch out for that.`;
-  }
-  return { explanation, analogy: analogy && style !== "step_by_step" ? `${key === "default" ? "Everyday" : capitalize(key)} analogy` : undefined, checkQuestion: concept.flashcards[0]?.front ?? `Can you tell me what ${concept.title.toLowerCase()} is?`, source: "prepared" };
-}
-
-export function interestKey(learner: Learner, analogies?: Record<string, string>): string {
-  if (!analogies) return "default";
-  const keys = Object.keys(analogies);
-  for (const i of learner.interests) {
-    const hit = keys.find((k) => k !== "default" && (i.toLowerCase().includes(k) || k.includes(i.toLowerCase())));
-    if (hit) return hit;
-  }
-  const synonyms: Record<string, string[]> = {
-    cricket: ["ipl", "bat", "bowling"],
-    football: ["soccer", "fifa", "messi"],
-    cooking: ["baking", "food", "chef", "kitchen", "recipes"],
-    gaming: ["games", "video games", "minecraft", "fortnite", "roblox", "esports"],
-    music: ["singing", "guitar", "piano", "k-pop", "kpop", "songs", "band", "dance"],
-  };
-  for (const i of learner.interests.map((x) => x.toLowerCase())) {
-    for (const [k, words] of Object.entries(synonyms)) if (keys.includes(k) && words.some((w) => i.includes(w))) return k;
-  }
-  return "default";
 }
 
 // ------------------------------------------------------------------ grading
@@ -239,9 +343,15 @@ export async function grade(llm: Llm | null, learner: Learner, concept: Concept,
     const pick = matchOption(a, q.options);
     if (pick !== undefined) {
       const ok = q.options[pick].toLowerCase() === q.answer.toLowerCase();
-      return ok
-        ? { score: 1, verdict: "correct", feedback: q.explanation }
-        : { score: 0, verdict: "incorrect", feedback: `It's ${q.answer}. ${q.explanation}`, misconception: `Mixed up ${q.answer.toLowerCase()} with ${q.options[pick].toLowerCase()}` };
+      if (ok) return { score: 1, verdict: "correct", feedback: q.explanation };
+      // Numbers and very short options make no sense as "mixed up four with two" out of context.
+      const isNumber = (x: string) => /^(\d+([.,]\d+)?%?|zero|one|two|three|four|five|six|seven|eight|nine|ten|twelve|twenty|hundred)$/i.test(x.trim());
+      const right = isNumber(q.answer) ? q.answer.toLowerCase() : q.answer;
+      const misconception =
+        isNumber(q.answer) || isNumber(q.options[pick]) || q.answer.length <= 3
+          ? `Said ${q.options[pick].toLowerCase()} instead of ${q.answer.toLowerCase()} in ${concept.title.toLowerCase()}`
+          : `Mixed up ${q.answer.toLowerCase()} with ${q.options[pick].toLowerCase()}`;
+      return { score: 0, verdict: "incorrect", feedback: `It's ${right}. ${q.explanation}`, misconception };
     }
   }
   if (q.type === "mcq" && q.options && !llm) {
@@ -262,17 +372,27 @@ export async function grade(llm: Llm | null, learner: Learner, concept: Concept,
         await llm.complete({
           purpose: "Grade a spoken answer",
           system: BASE_SYSTEM,
-          maxTokens: 600,
-          prompt: `Grade the learner's spoken answer by meaning, not wording. ${learnerContext(learner)}
+          maxTokens: 700,
+          temperature: 0,
+          prompt: `Grade the learner's spoken answer by meaning, not wording. Be fair but strict: kind in tone, honest in the score. ${learnerContext(learner)}
 Question: ${q.prompt}
 Model answer: ${q.answer}
 Key points of the concept: ${concept.keyPoints.join(" | ")}
 Learner said: "${a}"
-Return JSON: {"score": number 0-1, "verdict": "correct" | "partial" | "incorrect", "feedback": string (spoken, 1-2 sentences, kind and specific, at their level), "misconception": string or "" (a short note of the specific misunderstanding, if any, e.g. "Mixed up mitosis and meiosis")}`,
+First list every factually wrong claim in what they said (compare against the model answer and key points). Any wrong claim about the concept means the answer is not "correct": "partial" at most if the rest is right, otherwise "incorrect". Missing the main idea is "incorrect".
+Return JSON: {"errors": string[] (wrong claims, short; [] if none), "score": number 0-1, "verdict": "correct" | "partial" | "incorrect", "feedback": string (spoken, 1-2 sentences, kind and specific, at their level; if wrong, say what's right), "misconception": string or "" (the specific mix-up in under 10 words, starting with "Mixed up", "Confused", "Thought" or "Forgot", e.g. "Mixed up mitosis and meiosis")}`,
         }),
       );
       if (typeof out?.score === "number") {
-        return { score: Math.max(0, Math.min(1, out.score)), verdict: out.verdict ?? verdictFor(out.score), feedback: String(out.feedback ?? q.explanation), misconception: out.misconception || undefined };
+        const errors = Array.isArray(out.errors) ? out.errors.filter(Boolean) : [];
+        let score = Math.max(0, Math.min(1, out.score));
+        let verdict: Grade["verdict"] = out.verdict === "correct" || out.verdict === "partial" || out.verdict === "incorrect" ? out.verdict : verdictFor(score);
+        // A wrong claim can't be "correct", whatever the score says.
+        if (errors.length && verdict === "correct") {
+          verdict = "partial";
+          score = Math.min(score, 0.5);
+        }
+        return { score, verdict, feedback: String(out.feedback ?? q.explanation), misconception: verdict !== "correct" ? out.misconception || (errors[0] ? `Thought ${String(errors[0]).replace(/^that\s+/i, "")}`.slice(0, 80) : undefined) : undefined };
       }
     } catch (e) {
       log(e, "grading");
@@ -287,17 +407,14 @@ function matchOption(answer: string, options: string[]): number | undefined {
   if (letter) return "abcd".indexOf(letter[1]);
   const ordinal = ["first", "second", "third", "fourth"].findIndex((w) => new RegExp(`\\b${w}\\b`).test(a));
   if (ordinal >= 0) return ordinal;
-  // Longest option text that appears in the answer wins ("metaphase" vs "phase").
-  let best: number | undefined;
-  let bestLen = 0;
-  options.forEach((o, i) => {
-    const t = o.toLowerCase().replace(/[^\w\s]/g, " ").trim();
-    if (t && a.includes(t) && t.length > bestLen) {
-      best = i;
-      bestLen = t.length;
-    }
-  });
-  return best;
+  // Which options does the answer name? Ignore options that are just part of a longer named one
+  // ("phase" inside "metaphase"). If it names more than one ("meiosis is like mitosis"), it's not a
+  // clear pick: let the model grade it by meaning.
+  const named = options
+    .map((o, i) => ({ i, t: o.toLowerCase().replace(/[^\w\s]/g, " ").trim() }))
+    .filter((x) => x.t && new RegExp(`\\b${x.t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(a));
+  const distinct = named.filter((x) => !named.some((y) => y !== x && y.t.length > x.t.length && y.t.includes(x.t)));
+  return distinct.length === 1 ? distinct[0].i : undefined;
 }
 
 function verdictFor(score: number): Grade["verdict"] {
@@ -349,6 +466,7 @@ export async function evaluateTeachBack(llm: Llm | null, learner: Learner, conce
           purpose: "Check a teach-back explanation",
           system: BASE_SYSTEM,
           maxTokens: 900,
+          temperature: 0,
           prompt: `The learner just explained a concept back to you in their own words (Feynman technique). Compare it to the key points. ${learnerContext(learner)}
 Concept: ${concept.title}
 Key points: ${concept.keyPoints.map((k, i) => `${i + 1}. ${k}`).join(" ")}
@@ -424,7 +542,11 @@ export interface StoryDraft {
 }
 
 export async function bedtimeStory(llm: Llm | null, child: Learner, lesson: string, minutes: number): Promise<StoryDraft> {
-  if (llm) {
+  if (!llm) {
+    if (testEngine) return testEngine.story(child, lesson, minutes);
+    throw new NeedsLlmError(NO_AI);
+  }
+  {
     try {
       const words = Math.min(600, Math.max(180, minutes * 120));
       const out = parseJson<any>(
@@ -444,74 +566,12 @@ Return JSON: {"title": string, "pages": string[], "question": string (one gentle
     } catch (e) {
       log(e, "story");
     }
+    throw new NeedsLlmError(AI_DOWN);
   }
-  return templateStory(child, lesson);
-}
-
-const WORLDS: Array<{ match: RegExp; hero: string; place: string; friend: string; treasure: string }> = [
-  { match: /dino/i, hero: "a little triceratops named Tiko", place: "Fern Valley, where the volcano only ever puffed sleepy clouds", friend: "Rosa the stegosaurus", treasure: "a shiny, star-shaped pebble" },
-  { match: /space|rocket|planet|star/i, hero: "a tiny astronaut named Nova", place: "a cosy moon base on the edge of the Milky Way", friend: "Bleep the robot", treasure: "a glowing moon rock" },
-  { match: /car|truck|train/i, hero: "a little red train named Ruby", place: "the busy town of Whistle Hill", friend: "Max the tow truck", treasure: "a gleaming golden bell" },
-  { match: /unicorn|horse|pony|magic/i, hero: "a small unicorn named Luna", place: "the Meadow of a Thousand Flowers", friend: "Pip the pony", treasure: "a ribbon that shimmered like a rainbow" },
-  { match: /cat|dog|puppy|kitten|animal/i, hero: "a curious puppy named Biscuit", place: "a sunny little town by the sea", friend: "Mittens the cat", treasure: "a bright blue ball that squeaked" },
-  { match: /football|soccer|cricket|sport/i, hero: "a young bear named Bo who loved to play ball", place: "the Green Hollow playing field", friend: "Ellie the elephant", treasure: "a brand-new, perfectly round ball" },
-];
-
-function templateStory(child: Learner, lesson: string): StoryDraft {
-  const w = WORLDS.find((x) => child.interests.some((i) => x.match.test(i))) ?? { hero: "a little fox named Fennel", place: "a quiet wood where the trees hummed lullabies", friend: "Owlbert the owl", treasure: "a beautiful red feather" };
-  const heroName = w.hero.split(" named ")[1]?.split(" ")[0] ?? "the little fox";
-  const friendName = w.friend.split(" ")[0];
-  const l = lesson.toLowerCase();
-  let middle: string[];
-  let question: string;
-  if (/steal|taking|take things|theft|rob/.test(l)) {
-    middle = [
-      `One afternoon, ${heroName} spotted ${w.treasure} sitting all alone. It belonged to ${w.friend}. "Nobody is looking," whispered a little voice inside. "You could just take it." So ${heroName} picked it up and hurried home.`,
-      `But that evening, ${heroName}'s tummy felt twisty and heavy. Through the window, ${friendName} was searching everywhere, looking sad. ${heroName} looked at the treasure. It didn't feel shiny anymore. It felt like a secret that was too big to carry.`,
-      `So ${heroName} took a deep breath, walked over, and held it out. "I took this. I'm sorry." ${friendName} was quiet for a moment, and then smiled. "Thank you for bringing it back. That was brave." The twisty feeling melted away like snow in the sun.`,
-    ];
-    question = `Why do you think ${heroName}'s tummy felt twisty, and how did it feel after giving the treasure back?`;
-  } else if (/shar/.test(l)) {
-    middle = [
-      `One day, ${heroName} found ${w.treasure}, the best thing in the whole of ${w.place.split(",")[0]}. "It's all mine," ${heroName} said, holding it tight.`,
-      `${w.friend} came by and asked, "Can I see it too?" ${heroName} hid it away. But playing alone wasn't much fun, and soon ${heroName} felt lonely.`,
-      `So ${heroName} came back and said, "Let's take turns." They laughed and played until the sky turned pink. Sharing, ${heroName} discovered, made the fun twice as big.`,
-    ];
-    question = `What happened to the fun when ${heroName} decided to share?`;
-  } else if (/brave|scared|fear|afraid|courage/.test(l)) {
-    middle = [
-      `${heroName} was afraid of the dark path that led home. "What if something is out there?" ${heroName} worried.`,
-      `${w.friend} said, "Being brave doesn't mean you're not scared. It means you take one small step anyway." So ${heroName} took one small step, then another.`,
-      `The path wasn't so scary after all. There were fireflies lighting the way like tiny lanterns. ${heroName} smiled. One small step at a time, anything is possible.`,
-    ];
-    question = `What small brave step could you take tomorrow?`;
-  } else {
-    middle = [
-      `One day, ${heroName} had a choice to make. The easy way would have been quicker, but ${heroName} remembered something important: ${lesson.replace(/\.$/, "")}.`,
-      `It wasn't easy. ${heroName} felt unsure for a while. But ${w.friend} was watching, and when ${heroName} did the right thing, ${friendName}'s face lit up.`,
-      `"I'm proud of you," said ${friendName}. And ${heroName} felt proud too, warm all the way down to the tips of the toes.`,
-    ];
-    question = `What did ${heroName} learn today?`;
-  }
-  return {
-    title: `${heroName} and the ${/steal|taking|rob/.test(l) ? "Borrowed Treasure" : /shar/.test(l) ? "Best Thing to Share" : /brave|scared|fear|afraid/.test(l) ? "Dark Path Home" : "Right Choice"}`,
-    pages: [
-      `Once upon a time, in ${w.place}, there lived ${w.hero}. ${heroName}'s best friend was ${w.friend}.`,
-      ...middle,
-      `That night, ${heroName} curled up, snug and warm, and drifted off to sleep. Goodnight, ${heroName}. And goodnight, ${child.name}.`,
-    ],
-    question,
-  };
 }
 
 // ------------------------------------------------------------------ small helpers
 
 function lcFirst(s: string) {
   return s ? s.charAt(0).toLowerCase() + s.slice(1) : s;
-}
-function capitalize(s: string) {
-  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
-}
-function firstWords(s: string, n: number) {
-  return s.split(/\s+/).slice(0, n).join(" ").replace(/[,.;:]$/, "");
 }

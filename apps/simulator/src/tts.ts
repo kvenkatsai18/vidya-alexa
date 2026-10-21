@@ -13,11 +13,13 @@ export interface TtsVoice {
 
 /** Generative-capable English voices (Polly). */
 export const POLLY_VOICES: TtsVoice[] = [
-  { id: "Matthew", label: "Matthew (US, male)" },
-  { id: "Ruth", label: "Ruth (US, female)" },
-  { id: "Stephen", label: "Stephen (US, male)" },
-  { id: "Danielle", label: "Danielle (US, female)" },
+  // Joanna first: the closest in tone to a smart-speaker assistant (Alexa's own voice isn't in Polly).
   { id: "Joanna", label: "Joanna (US, female)" },
+  { id: "Danielle", label: "Danielle (US, female)" },
+  { id: "Ruth", label: "Ruth (US, female)" },
+  { id: "Salli", label: "Salli (US, female)" },
+  { id: "Matthew", label: "Matthew (US, male)" },
+  { id: "Stephen", label: "Stephen (US, male)" },
   { id: "Kajal", label: "Kajal (Indian English, female)" },
   { id: "Amy", label: "Amy (UK, female)" },
   { id: "Arthur", label: "Arthur (UK, male)" },
@@ -29,7 +31,7 @@ let client: PollyClient | undefined;
 const cache = new Map<string, Buffer>();
 
 export async function synthesize(text: string, voice: string, style: "talk" | "story" = "talk"): Promise<Buffer> {
-  const id = (POLLY_VOICES.find((v) => v.id === voice)?.id ?? (process.env.BUDDY_VOICE as VoiceId) ?? "Matthew") as VoiceId;
+  const id = (POLLY_VOICES.find((v) => v.id === voice)?.id ?? (process.env.BUDDY_VOICE as VoiceId) ?? "Joanna") as VoiceId;
   const key = `${id}|${style}|${text}`;
   const hit = cache.get(key);
   if (hit) return hit;

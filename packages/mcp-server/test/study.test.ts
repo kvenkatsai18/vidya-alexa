@@ -14,6 +14,11 @@ import { Mentor } from "../src/domain/mentor.ts";
 import { newMastery, review } from "../src/domain/srs.ts";
 import { Store } from "../src/domain/store.ts";
 import { CARD_URI, createStudyBuddyServer, MCP_APP_MIME } from "../src/server.ts";
+import { useOfflineEngine } from "../src/domain/generate.ts";
+import { offlineEngine } from "./fixtures/offline-engine.ts";
+
+// Tests use scripted stand-ins for the model; the product generates everything live.
+useOfflineEngine(offlineEngine);
 
 type R = Record<string, any>;
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -201,7 +206,9 @@ describe("MCP features", () => {
     const graded = await call("answer_question", { answer: "sugar and oxygen" });
     assert.equal(graded.kind, "quiz_summary");
     assert.equal(graded.correct, 1);
-    assert.equal(sampled.length, 3);
+    // deck, explanation, fresh questions (the set had only one question), grading
+    assert.equal(sampled.length, 4);
+    assert.match(sampled[2].messages[0].content.text, /Write \d NEW quiz questions about "Photosynthesis"/);
     assert.match(sampled[0].systemPrompt, /Study Buddy/);
     assert.match(sampled[1].messages[0].content.text, /Maya/, "the learner context travels with the request");
   });
@@ -260,7 +267,7 @@ describe("Streamable HTTP transport", () => {
 
   before(async () => {
     proc = spawn(process.execPath, ["--import", "tsx", path.join(here, "../src/index.ts")], {
-      env: { ...process.env, MCP_PORT: String(port), BUDDY_DATA_DIR: mkdtempSync(path.join(tmpdir(), "sb-")), BUDDY_LLM: "offline" },
+      env: { ...process.env, MCP_PORT: String(port), BUDDY_DATA_DIR: mkdtempSync(path.join(tmpdir(), "sb-")), BUDDY_LLM: "fixture" },
       stdio: "pipe",
     });
     for (let i = 0; i < 50; i++) {
@@ -283,4 +290,25 @@ describe("Streamable HTTP transport", () => {
     assert.equal((res.structuredContent as R).kind, "welcome");
     await client.close();
   });
+});
+
+it("with no AI connected, nothing is faked: generation asks for the AI connection", async () => {
+  useOfflineEngine(null);
+  try {
+    const store = new Store({ dir: null });
+    const server = createStudyBuddyServer(new Mentor(store), { llm: null });
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: "t", version: "1" });
+    await Promise.all([server.connect(a), client.connect(b)]);
+    const call = async (name: string, args: R = {}): Promise<R> => (await client.callTool({ name, arguments: args })).structuredContent as R;
+    await call("set_up_learner", { name: "Priya", level: "Grade 10" });
+    const deck = await call("add_material", { title: "Cell division", text: NOTES });
+    assert.equal(deck.kind, "error");
+    assert.match(deck.speech, /need my AI connection/);
+    const topic = await call("add_topic", { topic: "photosynthesis" });
+    assert.match(topic.speech, /need my AI connection/);
+    assert.equal(store.get().decks.length, 0, "no pre-made study set was created");
+  } finally {
+    useOfflineEngine(offlineEngine);
+  }
 });

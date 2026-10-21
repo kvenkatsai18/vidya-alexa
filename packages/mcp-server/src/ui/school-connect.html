@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Connect school</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@300..800&display=swap" rel="stylesheet" />
+<style>
+  /* Styled like the Alexa app: navy, white text, the cyan accent for the one action. */
+  :root { --bg: #0b1220; --card: #141e30; --line: #26344d; --ink: #ffffff; --ink-2: #b7c3d4; --accent: #1ad2ff; --accent-ink: #04121c; --good: #3ddc97; --oops: #ff7a6b; color-scheme: dark; }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #eef2f6; --card: #ffffff; --line: #d3dce7; --ink: #0b1220; --ink-2: #44526a; --accent: #0077b6; --accent-ink: #ffffff; --good: #0e8a5f; --oops: #c8452f; color-scheme: light; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--ink); font-family: "Figtree", system-ui, sans-serif; line-height: 1.5; }
+  main { max-width: 560px; margin: 0 auto; padding: 36px 18px 56px; }
+  h1 { font-size: 1.9rem; line-height: 1.15; margin: 0 0 6px; }
+  .sub { color: var(--ink-2); margin: 0 0 22px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; margin-bottom: 14px; }
+  .card h2 { font-size: 1rem; margin: 0 0 8px; }
+  ul { margin: 0; padding-left: 1.2rem; color: var(--ink-2); }
+  li + li { margin-top: 4px; }
+  .yes li::marker { content: "✓  "; color: var(--good); font-weight: 800; }
+  .no li::marker { content: "✕  "; color: var(--oops); font-weight: 800; }
+  label.check { display: flex; gap: 10px; align-items: flex-start; }
+  label.check input { margin-top: 4px; width: 20px; height: 20px; accent-color: var(--accent); flex: none; }
+  button, a.btn { display: inline-block; font: inherit; font-weight: 700; border-radius: 999px; padding: 12px 24px; border: 0; background: var(--accent); color: var(--accent-ink); cursor: pointer; text-decoration: none; margin-top: 14px; }
+  button:disabled, a.btn.off { opacity: .4; pointer-events: none; }
+  button:focus-visible, a.btn:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+  .status { margin-top: 12px; min-height: 1.5em; font-weight: 700; }
+  .status.ok { color: var(--good); }
+  .status.err { color: var(--oops); }
+  .note { font-size: .88rem; color: var(--ink-2); }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="title">Connect school</h1>
+  <p class="sub" id="who"></p>
+
+  <section class="card">
+    <h2>What Study Buddy can see</h2>
+    <ul class="yes">
+      <li>Classes and teachers</li>
+      <li>Assignments, due dates, and whether they're turned in</li>
+      <li>Tests and quizzes your teachers post</li>
+      <li>Class materials and teacher notes (to turn them into study sets)</li>
+      <li>Your age range and birthday from Google, only to check whether a parent needs to connect (under 13). If so, nothing is kept.</li>
+    </ul>
+    <h2 style="margin-top:14px">What it will never do</h2>
+    <ul class="no">
+      <li>Submit, edit, or post anything</li>
+      <li>Do your homework for you (it helps you learn it instead)</li>
+      <li>Share your school data with anyone else</li>
+    </ul>
+  </section>
+
+  <section class="card">
+    <label class="check"><input type="checkbox" id="ok" /> <span id="agree"></span></label>
+    <div id="action"></div>
+    <p class="status" id="status" role="status" aria-live="polite"></p>
+    <p class="note">You can disconnect any time by saying "disconnect my school". Synced classes and assignments are deleted when you do.</p>
+  </section>
+</main>
+<script>
+  const CFG = __CONFIG__;
+  const $ = (id) => document.getElementById(id);
+  const parent = CFG.by.role === "parent";
+  $("title").textContent = `Connect ${CFG.learner}'s school`;
+  $("who").textContent = parent ? `${CFG.by.name} is connecting for ${CFG.learner}. Read-only.` : `Read-only. Takes about a minute.`;
+  $("agree").textContent = parent ? `I'm ${CFG.learner}'s parent or guardian, and I'm choosing to connect their school account.` : `This is my school account, and I'm choosing to connect it.`;
+  const status = (t, c = "") => { $("status").textContent = t; $("status").className = `status ${c}`; };
+
+  if (CFG.live && CFG.authUrl) {
+    $("action").innerHTML = `<a class="btn off" id="go" href="#">Continue to sign in</a>`;
+    $("ok").onchange = () => {
+      $("go").classList.toggle("off", !$("ok").checked);
+      $("go").href = $("ok").checked ? CFG.authUrl : "#";
+    };
+  } else {
+    $("action").innerHTML = `<button id="go" disabled>Connect the sample school</button><p class="note">Test mode: no sign-in key is set up yet, so this connects a sample class with real-looking assignments and notes.</p>`;
+    $("ok").onchange = () => ($("go").disabled = !$("ok").checked);
+    $("go").onclick = async () => {
+      $("go").disabled = true;
+      status("Connecting…");
+      const r = await fetch(`/school/connect/mock?token=${encodeURIComponent(CFG.token)}`, { method: "POST" });
+      const out = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        $("go").disabled = false;
+        return status(out.error ?? "Something went wrong.", "err");
+      }
+      status("Connected! You can close this page.", "ok");
+    };
+  }
+</script>
+</body>
+</html>

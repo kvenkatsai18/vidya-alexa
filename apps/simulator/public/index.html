@@ -1,14 +1,14 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="night">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Study Buddy · Alexa+ simulator</title>
 <meta name="description" content="Simulated Alexa+ smart display running the Study Buddy add-on over MCP." />
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231e2531'/%3E%3Crect x='14' y='18' width='36' height='26' rx='3' fill='%23f6f1e4'/%3E%3Cpath d='M14 46l12-6 12 6' fill='none' stroke='%23f7e35a' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b1220'/%3E%3Crect x='14' y='18' width='36' height='26' rx='3' fill='%23141e30'/%3E%3Cpath d='M14 46l12-6 12 6' fill='none' stroke='%231ad2ff' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@300..800&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@300..800&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -30,9 +30,25 @@
         </header>
 
         <section class="ambient" id="ambient">
-          <p class="ambient-time" id="ambientTime">--:--</p>
-          <p class="ambient-date" id="ambientDate"></p>
-          <p class="ambient-hint" id="ambientHint">Try “Alexa, help me study”</p>
+          <div class="ambient-main">
+            <p class="ambient-time" id="ambientTime">--:--</p>
+            <p class="ambient-date" id="ambientDate"></p>
+            <p class="ambient-greet" id="ambientGreet"></p>
+          </div>
+          <div class="tipcard" aria-live="polite">
+            <p class="tip-label">Try saying</p>
+            <p class="ambient-hint" id="ambientHint">“Alexa, help me study”</p>
+          </div>
+        </section>
+
+        <section class="needs-ai" id="needsAi" hidden role="alert">
+          <h2>Study Buddy needs its AI connection</h2>
+          <p>Everything here is generated live by Amazon Nova on Amazon Bedrock, so there's nothing to show without it.</p>
+          <ol>
+            <li>Run <code>aws configure</code> with a key that can use Amazon Bedrock (region us-east-1).</li>
+            <li>Restart with <code>npm run dev</code>.</li>
+          </ol>
+          <p class="needs-ai-alt">Judges: you can also use the hosted version linked in the submission.</p>
         </section>
 
         <section class="cardwrap" id="cardwrap" hidden></section>
@@ -72,6 +88,7 @@
       <button type="submit" class="send">Send</button>
     </form>
     <div class="chips" id="chips" aria-label="Suggestions"></div>
+    <p class="earnote" id="earNote" hidden title="Like an Echo: say “Alexa”, then your request. Say “Alexa” or “stop” to interrupt. In this browser simulator, Chrome sends microphone audio to Google for speech recognition while listening (a real Echo detects the wake word on the device)."></p>
     <p class="micnote" id="micnote" hidden>Voice input needs Chrome or Edge. You can still type.</p>
   </main>
 
@@ -86,21 +103,31 @@
       <div><dt>Protocol</dt><dd id="fProto">–</dd></div>
       <div><dt>Transport</dt><dd>Streamable HTTP</dd></div>
       <div><dt>Session</dt><dd id="fSession">–</dd></div>
+      <div><dt>Home</dt><dd id="fHome">–</dd></div>
       <div><dt>Agent</dt><dd id="fAgent">–</dd></div>
       <div><dt>Agent Skills</dt><dd id="fSkill">–</dd></div>
     </dl>
 
     <div class="timetravel">
       <h3>Demo clock</h3>
+      <p class="sub">For judges and demos only. Study Buddy remembers across real days; this lets you see "tomorrow" without waiting. Moving ahead also runs the overnight routine.</p>
       <p class="sub" id="serverNow">–</p>
       <div class="tt-actions">
-        <button class="ghost" data-advance="1">Skip ahead a day</button>
-        <button class="ghost" data-advance="3">Skip 3 days</button>
+        <button class="ghost" data-advance="1" title="Pretend it's tomorrow morning: the overnight routine runs, then say 'Good morning'">Pretend it's tomorrow</button>
+        <button class="ghost" data-advance="3" title="Pretend 3 days have passed">Skip 3 days</button>
         <button class="ghost danger" id="resetHome">Reset everything</button>
       </div>
     </div>
 
     <div class="voicebox">
+      <div class="voice-row" style="justify-content: space-between">
+        <h3>Screen</h3>
+        <div class="seg" role="group" aria-label="Screen theme">
+          <button type="button" data-theme-choice="day" aria-pressed="false">Day</button>
+          <button type="button" data-theme-choice="night" aria-pressed="true">Night</button>
+          <button type="button" data-theme-choice="auto" aria-pressed="false">Auto</button>
+        </div>
+      </div>
       <h3>Voice</h3>
       <div class="voice-row">
         <select id="voiceSelect" aria-label="Voice"></select>
@@ -108,8 +135,9 @@
       </div>
       <p class="sub" id="voiceNote"></p>
       <div class="voice-row">
+        <label class="toggle" title="Say “Alexa” to talk, and “Alexa” or “stop” to interrupt. Chrome sends microphone audio to Google for speech recognition while listening."><input type="checkbox" id="wakeWord" checked /> Wake word “Alexa”</label>
         <label class="toggle"><input type="checkbox" id="speakToggle" checked /> Speak replies</label>
-        <label class="toggle" title="After a question, keep listening for your answer, like a real conversation"><input type="checkbox" id="handsFree" checked /> Hands-free conversation</label>
+        <label class="toggle" title="Conversation mode: after each reply, keep listening for a few seconds so you can just keep talking, without saying “Alexa” again"><input type="checkbox" id="handsFree" checked /> Conversation mode</label>
       </div>
     </div>
 

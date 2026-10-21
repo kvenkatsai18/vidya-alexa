@@ -5,6 +5,7 @@ import {
   CreateMessageRequestSchema,
   ElicitationCompleteNotificationSchema,
   ElicitRequestSchema,
+  ResourceUpdatedNotificationSchema,
   type CallToolResult,
   type CreateMessageRequest,
   type CreateMessageResult,
@@ -72,6 +73,14 @@ export interface McpConnectionOptions {
   onSample?: (params: CreateMessageRequest["params"]) => Promise<CreateMessageResult>;
   /** URL-mode elicitation finished out of band (e.g. the parent finished recording their voice). */
   onElicitComplete?: (elicitationId: string) => void;
+  /** A subscribed resource changed (e.g. another home took their turn in an online game). */
+  onResourceUpdated?: (uri: string) => void;
+  /** Which household this device belongs to. In production this comes from the signed-in account. */
+  home?: string;
+  /** The device's IANA time zone ("America/New_York"). */
+  timeZone?: string;
+  /** BUDDY_ACCESS_TOKEN of a hosted MCP server. */
+  accessToken?: string;
 }
 
 /** The simulator's MCP client: initialize -> tools/list -> tools/call over Streamable HTTP. */
@@ -87,7 +96,11 @@ export class McpConnection {
   ) {}
 
   static async connect(url: string, opts: McpConnectionOptions): Promise<McpConnection> {
-    const inner = new StreamableHTTPClientTransport(new URL(url));
+    const headers: Record<string, string> = {};
+    if (opts.home) headers["x-study-buddy-home"] = opts.home;
+    if (opts.accessToken) headers.authorization = `Bearer ${opts.accessToken}`;
+    if (opts.timeZone) headers["x-study-buddy-tz"] = opts.timeZone;
+    const inner = new StreamableHTTPClientTransport(new URL(url), { requestInit: { headers } });
     const transport = new TracingTransport(inner, opts.onTrace);
     const client = new Client(
       { name: "alexa-plus-simulator", title: "Alexa+ experience simulator", version: "0.2.0" },
@@ -103,6 +116,7 @@ export class McpConnection {
     client.setRequestHandler(ElicitRequestSchema, (req) => opts.onElicit(req.params));
     if (opts.onSample) client.setRequestHandler(CreateMessageRequestSchema, (req) => opts.onSample!(req.params));
     client.setNotificationHandler(ElicitationCompleteNotificationSchema, (n) => opts.onElicitComplete?.(n.params.elicitationId));
+    client.setNotificationHandler(ResourceUpdatedNotificationSchema, (n) => opts.onResourceUpdated?.(n.params.uri));
     await client.connect(transport);
     const conn = new McpConnection(url, client, transport);
     await conn.refreshTools();
@@ -136,6 +150,26 @@ export class McpConnection {
   callTool(name: string, args: Record<string, unknown>): Promise<CallToolResult> {
     // Long timeout: a purchase confirmation (elicitation) can keep a tools/call open while the user decides.
     return this.client.callTool({ name, arguments: args }, undefined, { timeout: 5 * 60_000 }) as Promise<CallToolResult>;
+  }
+
+  private subscribed = new Set<string>();
+
+  /** resources/subscribe once per URI; the server then sends notifications/resources/updated. */
+  async subscribe(uri: string) {
+    if (this.subscribed.has(uri)) return;
+    this.subscribed.add(uri);
+    await this.client.subscribeResource({ uri }).catch(() => this.subscribed.delete(uri));
+  }
+
+  async unsubscribe(uri: string) {
+    if (!this.subscribed.delete(uri)) return;
+    await this.client.unsubscribeResource({ uri }).catch(() => {});
+  }
+
+  async readJson(uri: string): Promise<Record<string, any>> {
+    const res = await this.client.readResource({ uri });
+    const c = res.contents[0];
+    return c && "text" in c ? JSON.parse(c.text) : {};
   }
 
   async uiFor(toolName: string): Promise<{ uri: string; html: string } | null> {

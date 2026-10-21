@@ -6,59 +6,71 @@
 <title>Study Buddy card</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:ital,wght@0,300..800;1,400&family=Literata:ital,opsz,wght@0,7..72,400..700;1,7..72,400&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..800;1,400..600&family=Literata:ital,opsz,wght@0,7..72,400..700;1,7..72,400&display=swap" rel="stylesheet" />
 <style>
+  /* Alexa+ cards: the bright Echo Show look by day; Alexa night (navy + cyan) when the host says "dark". */
   :root {
-    --desk: #151a23;
-    --surface: #1e2531;
-    --surface-2: #273040;
-    --line: #364052;
-    --ink: #eef1f5;
-    --ink-2: #a9b2c0;
-    --ink-3: #737d8c;
-    --hi: #f7e35a;        /* highlighter yellow */
-    --hi-ink: #1b1f27;
-    --hi-text: #f7e35a;
-    --good: #7ddba3;      /* mastered / correct */
-    --oops: #ff8fb1;      /* mistakes: pink, not red */
-    --new: #8ec5ff;
-    --paper: #f6f1e4;     /* index card */
-    --paper-ink: #222733;
-    --rule: #bfd2ea;
-    --margin: #e58a8a;
+    --desk: #eef2f6;
+    --surface: #ffffff;
+    --surface-2: #e5ebf2;
+    --line: #d3dce7;
+    --ink: #0b1220;
+    --ink-2: #44526a;
+    --ink-3: #6b788d;
+    --hi: #0077b6;        /* the Alexa light, dark enough to read on white */
+    --hi-deep: #005f92;
+    --hi-ink: #ffffff;
+    --hi-text: #0067a0;
+    --mark: #c4efff;      /* highlight behind key words */
+    --warn: #9a6400;      /* getting there */
+    --good: #0e8a5f;      /* mastered, correct */
+    --oops: #c8452f;      /* mistakes */
+    --new: #2a5bd7;
+    --paper: #ffffff;
+    --paper-ink: #0b1220;
     --night: #12163a;
     --night-2: #1c2150;
     --lamp: #ffc978;
-    --r-lg: 22px;
-    --r-sm: 12px;
-    color-scheme: dark;
-  }
-  :root[data-theme="light"] {
-    --desk: #f3f5f8;
-    --surface: #ffffff;
-    --surface-2: #eceff4;
-    --line: #d5dae3;
-    --ink: #1b1f27;
-    --ink-2: #4f5866;
-    --ink-3: #7a8392;
-    --hi-text: #8a6d00;
-    --good: #23885a;
-    --oops: #c2416d;
-    --new: #2f6fbf;
+    --r-lg: 18px;
+    --r-md: 14px;
+    --r-sm: 10px;
+    --lift: 0 1px 0 rgba(11,18,32,.03), 0 10px 22px -18px rgba(11,18,32,.35);
     color-scheme: light;
   }
+  :root[data-theme="dark"] {
+    --desk: #0b1220;
+    --surface: #141e30;
+    --surface-2: #1c2940;
+    --line: #26344d;
+    --ink: #ffffff;
+    --ink-2: #b7c3d4;
+    --ink-3: #7d8aa0;
+    --hi: #1ad2ff;
+    --hi-deep: #12b8e0;
+    --hi-ink: #04121c;
+    --hi-text: #5fe1ff;
+    --mark: rgba(26,210,255,.26);
+    --warn: #ffc24b;
+    --good: #3ddc97;
+    --oops: #ff7a6b;
+    --new: #8eb4ff;
+    --paper: #141e30;
+    --paper-ink: #ffffff;
+    --lift: 0 12px 26px -18px rgba(0,0,0,.7);
+    color-scheme: dark;
+  }
   * { box-sizing: border-box; }
-  html { font-size: clamp(13px, 1.25vw + 7px, 21px); background: transparent; }
+  html { font-size: clamp(12px, 1.05vw + 6px, 19px); background: transparent; }
   body {
     margin: 0;
-    font-family: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-family: "Figtree", ui-sans-serif, system-ui, -apple-system, sans-serif;
     color: var(--ink);
     background: var(--desk);
     line-height: 1.42;
     -webkit-font-smoothing: antialiased;
   }
   h1, h2, h3, p { margin: 0; }
-  .card { padding: 1.5rem 1.6rem 1.6rem; }
+  .card { padding: 1.4rem 1.6rem 1.6rem; }
   h1 { font-size: 1.9rem; font-weight: 750; letter-spacing: -0.012em; line-height: 1.12; text-wrap: balance; }
   h2 { font-size: 1.05rem; font-weight: 700; }
   .sub { color: var(--ink-2); font-size: 0.95rem; }
@@ -68,83 +80,79 @@
   .grow { flex: 1; min-width: 0; }
   .big-num { font-size: 4.6rem; font-weight: 800; line-height: 0.9; letter-spacing: -0.03em; font-feature-settings: "tnum"; }
 
-  /* highlighter: the signature mark */
-  mark, .hl {
-    color: inherit;
-    background: linear-gradient(100deg, transparent 0.15em, color-mix(in srgb, var(--hi) 78%, transparent) 0.3em, color-mix(in srgb, var(--hi) 62%, transparent) 92%, transparent 98%);
-    background-size: 100% 62%;
-    background-position: 0 72%;
-    background-repeat: no-repeat;
-    padding: 0 0.12em;
-    border-radius: 0.2em;
-  }
-  :root:not([data-theme="light"]) mark, :root:not([data-theme="light"]) .hl { color: var(--ink); background-size: 100% 26%; background-position: 0 92%; }
-  mark.good { --hi: var(--good); }
-  mark.oops { --hi: var(--oops); }
+  /* key words get a soft Alexa-cyan highlight */
+  mark, .hl { color: inherit; background: var(--mark); padding: 0 0.18em; border-radius: 0.25em; }
+  mark.good { background: color-mix(in srgb, var(--good) 22%, transparent); }
+  mark.oops { background: color-mix(in srgb, var(--oops) 20%, transparent); }
 
-  /* index card */
+  /* fact card (flashcards, key points): a clean panel with the accent edge */
   .index {
     position: relative;
-    background-color: var(--paper);
-    background-image:
-      linear-gradient(90deg, transparent 2.6rem, var(--margin) 2.6rem, var(--margin) calc(2.6rem + 1.5px), transparent calc(2.6rem + 1.5px)),
-      repeating-linear-gradient(180deg, transparent 0 1.6rem, var(--rule) 1.6rem calc(1.6rem + 1px));
-    background-position: 0 0, 0 2.4rem;
+    background: var(--paper);
     color: var(--paper-ink);
-    border-radius: 6px;
-    padding: 1rem 1.3rem 1.2rem 3.4rem;
-    line-height: 1.6rem;
-    box-shadow: 0 1px 0 rgba(255,255,255,.4) inset, 0 14px 30px -18px rgba(0,0,0,.65);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--hi);
+    border-radius: var(--r-md);
+    padding: 1rem 1.2rem 1.1rem;
+    line-height: 1.55;
+    box-shadow: var(--lift);
   }
-  .index .label { font-size: 0.75rem; color: #7d8494; line-height: 1.6rem; display: block; }
-  .index mark { color: var(--paper-ink); background-size: 100% 62%; background-position: 0 72%; }
+  .index > div + div { margin-top: 0.45rem; padding-top: 0.45rem; border-top: 1px solid var(--line); }
+  .index .label { font-size: 0.78rem; font-weight: 700; color: var(--hi-text); display: block; margin-bottom: 0.4rem; }
+  .index mark { color: inherit; }
 
   /* actions */
   .actions { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1.3rem; }
   button {
-    font: inherit; font-size: 0.95rem; font-weight: 650;
-    border-radius: 999px; padding: 0.7rem 1.25rem;
-    border: 1.5px solid var(--line); background: var(--surface-2); color: var(--ink);
-    cursor: pointer; transition: background 120ms ease, transform 120ms ease;
+    font: inherit; font-size: 0.95rem; font-weight: 700;
+    border-radius: 999px; padding: 0.68rem 1.25rem;
+    border: 1.5px solid var(--line); background: var(--surface); color: var(--ink);
+    cursor: pointer; transition: background 120ms ease, transform 120ms ease, border-color 120ms ease;
   }
-  button:hover { background: var(--line); }
+  button:hover { background: var(--surface-2); }
   button:active { transform: scale(0.97); }
-  button:focus-visible { outline: 3px solid var(--hi); outline-offset: 2px; }
-  button.primary { background: var(--hi); border-color: var(--hi); color: var(--hi-ink); }
+  button:focus-visible { outline: 3px solid var(--new); outline-offset: 2px; }
+  button.primary { background: var(--hi); border-color: var(--hi-deep); color: var(--hi-ink); }
+  button.primary:hover { background: var(--hi-deep); }
   button:disabled { opacity: 0.5; cursor: default; }
   button.small { padding: 0.4rem 0.8rem; font-size: 0.8rem; }
 
   .chip { display: inline-flex; align-items: center; gap: 0.4em; font-size: 0.76rem; font-weight: 700; padding: 0.22rem 0.65rem; border-radius: 999px; background: var(--surface-2); color: var(--ink-2); white-space: nowrap; }
-  .chip.solid { background: color-mix(in srgb, var(--good) 18%, transparent); color: var(--good); }
-  .chip.learning { background: color-mix(in srgb, var(--hi) 18%, transparent); color: var(--hi-text); }
-  .chip.shaky { background: color-mix(in srgb, var(--oops) 18%, transparent); color: var(--oops); }
+  .chip.solid { background: color-mix(in srgb, var(--good) 14%, transparent); color: var(--good); }
+  .chip.learning { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
+  .chip.shaky { background: color-mix(in srgb, var(--oops) 13%, transparent); color: var(--oops); }
   .chip.new { background: transparent; color: var(--ink-3); box-shadow: inset 0 0 0 1.5px var(--line); }
   .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 
-  .panel { background: var(--surface); border-radius: var(--r-lg); padding: 1.1rem 1.2rem; }
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 1.1rem 1.2rem; box-shadow: var(--lift); }
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 0.85rem; }
-  .tile { background: var(--surface); border-radius: var(--r-lg); padding: 1rem 1.15rem; display: flex; flex-direction: column; gap: 0.35rem; }
+  .tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 1rem 1.15rem; display: flex; flex-direction: column; gap: 0.35rem; }
 
-  .note { border-left: 4px solid var(--oops); padding: 0.45rem 0 0.45rem 0.85rem; font-size: 0.95rem; }
+  /* a note about your learning ("Last time: ..."), set apart with a coral edge */
+  .note { font-size: 0.98rem; font-weight: 600; line-height: 1.35; color: var(--ink); padding: 0.45rem 0 0.45rem 0.8rem; border-left: 3px solid var(--oops); }
   .note.hi { border-color: var(--hi); }
+  .note.event { color: var(--ink-2); border-color: var(--line); font-weight: 500; }
 
   /* quiz */
   .dots { display: flex; gap: 0.35rem; }
-  .dots i { width: 0.75rem; height: 0.75rem; border-radius: 50%; background: var(--surface-2); box-shadow: inset 0 0 0 1.5px var(--line); }
+  .dots i { width: 0.75rem; height: 0.75rem; border-radius: 50%; background: var(--surface); box-shadow: inset 0 0 0 1.5px var(--line); }
   .dots i.correct { background: var(--good); box-shadow: none; }
-  .dots i.partial { background: var(--hi); box-shadow: none; }
+  .dots i.partial { background: var(--warn); box-shadow: none; }
   .dots i.incorrect { background: var(--oops); box-shadow: none; }
   .dots i.now { box-shadow: inset 0 0 0 2.5px var(--ink); }
   .fb { display: flex; gap: 0.8rem; align-items: flex-start; border-radius: var(--r-sm); padding: 0.75rem 0.95rem; margin-bottom: 1.1rem; font-size: 0.95rem; }
-  .fb.correct { background: color-mix(in srgb, var(--good) 15%, transparent); }
-  .fb.partial { background: color-mix(in srgb, var(--hi) 14%, transparent); }
-  .fb.incorrect { background: color-mix(in srgb, var(--oops) 15%, transparent); }
+  .fb.correct { background: color-mix(in srgb, var(--good) 12%, transparent); }
+  .fb.partial { background: color-mix(in srgb, var(--warn) 14%, transparent); }
+  .fb.incorrect { background: color-mix(in srgb, var(--oops) 11%, transparent); }
   .fb b { font-weight: 800; }
   .fb .tag { font-size: 0.78rem; color: var(--ink-2); display: block; margin-top: 0.2rem; }
-  .q { font-size: 1.65rem; font-weight: 650; line-height: 1.25; text-wrap: pretty; margin: 0.9rem 0 1.1rem; max-width: 36ch; }
+  .q { font-size: 1.65rem; font-weight: 700; line-height: 1.25; text-wrap: pretty; margin: 0.9rem 0 1.1rem; max-width: 36ch; }
   .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
-  .opt { display: flex; gap: 0.8rem; align-items: center; text-align: left; border-radius: var(--r-sm); padding: 0.85rem 1rem; font-size: 1.05rem; font-weight: 600; }
-  .opt span { flex: none; width: 1.8rem; height: 1.8rem; border-radius: 50%; display: grid; place-items: center; background: var(--desk); color: var(--ink-2); font-size: 0.85rem; font-weight: 800; }
+  .opt { display: flex; gap: 0.8rem; align-items: center; text-align: left; border-radius: var(--r-md); padding: 0.85rem 1rem; font-size: 1.05rem; font-weight: 650; background: var(--surface); box-shadow: var(--lift); }
+  .opt:hover { border-color: var(--hi-deep); background: var(--surface); }
+  .opt span { flex: none; width: 1.8rem; height: 1.8rem; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); color: var(--ink-2); font-size: 0.85rem; font-weight: 800; }
+  .opt:hover span { background: var(--hi); color: var(--hi-ink); }
+  .opt:hover { border-color: var(--hi); }
 
   /* flashcard flip */
   .flip { perspective: 1200px; }
@@ -155,26 +163,26 @@
   .flip .face p { font-size: 1.35rem; font-weight: 650; line-height: 1.6rem; padding-top: 0.2rem; }
 
   /* explanation */
-  .say { font-size: 1.35rem; line-height: 1.42; font-weight: 500; text-wrap: pretty; max-width: 40ch; }
+  .say { font-size: 1.28rem; line-height: 1.45; font-weight: 500; text-wrap: pretty; max-width: 40ch; }
   .kp { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
   .kp li { display: grid; grid-template-columns: 1.1rem 1fr; gap: 0.6rem; font-size: 0.95rem; color: var(--ink); }
-  .kp li::before { content: ""; width: 0.55rem; height: 0.55rem; margin-top: 0.45rem; border-radius: 2px; background: var(--hi); }
+  .kp li::before { content: ""; width: 0.55rem; height: 0.55rem; margin-top: 0.45rem; border-radius: 50%; background: var(--hi); }
   .kp li.covered::before { background: var(--good); border-radius: 50%; }
   .kp li.missing::before { background: transparent; box-shadow: inset 0 0 0 2px var(--oops); border-radius: 50%; }
   .kp li.missing { color: var(--ink-2); }
-  .kp li.pending::before { background: var(--surface-2); }
+  .kp li.pending::before { background: var(--line); }
   .two { display: grid; grid-template-columns: 1.35fr 1fr; gap: 1.4rem; align-items: start; }
 
   /* mastery map */
   .map { display: grid; grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr)); gap: 0.55rem; }
-  .cell { border-radius: var(--r-sm); padding: 0.7rem 0.8rem; background: var(--surface); display: flex; flex-direction: column; gap: 0.4rem; }
+  .cell { border-radius: var(--r-sm); padding: 0.7rem 0.8rem; background: var(--surface); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 0.4rem; }
   .meter { height: 6px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
   .meter i { display: block; height: 100%; border-radius: 999px; background: var(--ink-3); }
   .cell.solid .meter i { background: var(--good); }
-  .cell.learning .meter i { background: var(--hi); }
+  .cell.learning .meter i { background: var(--warn); }
   .cell.shaky .meter i { background: var(--oops); }
   .days { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; counter-reset: d; }
-  .days li { display: grid; grid-template-columns: 6.5rem 1fr auto; gap: 0.8rem; align-items: baseline; padding: 0.6rem 0; border-bottom: 1px solid var(--line); }
+  .days li { display: grid; grid-template-columns: 6.5rem 1fr auto; gap: 0.8rem; align-items: baseline; padding: 0.6rem 0; border-bottom: 1.5px dashed var(--line); }
   .days li:last-child { border-bottom: 0; }
   .days li.today .when { color: var(--hi-text); font-weight: 800; }
 
@@ -183,7 +191,7 @@
   .ring { width: 100%; height: 10px; border-radius: 999px; background: var(--surface-2); overflow: hidden; margin-top: 1.2rem; }
   .ring i { display: block; height: 100%; background: var(--hi); transition: width 1s linear; }
 
-  /* story mode */
+  /* story mode: always night, it's bedtime */
   body.story { background: var(--night); color: #f4ecdd; }
   .storybook { padding: 1.6rem 1.9rem 1.7rem; background:
       radial-gradient(60rem 30rem at 85% -10%, rgba(255,201,120,.16), transparent 60%),
@@ -201,12 +209,48 @@
   .pager i.on { background: var(--lamp); }
   .storybook button { background: #262c66; border-color: #3a4078; color: #f4ecdd; }
   .storybook button.primary { background: var(--lamp); border-color: var(--lamp); color: #2a1d06; }
-  .voice-badge { display: inline-block; margin: .5rem 0 .2rem; padding: .2rem .7rem; border-radius: 999px; background: rgba(255,201,120,.16); color: var(--lamp); font-size: .8rem; font-weight: 700; font-family: "Atkinson Hyperlegible Next", sans-serif; }
+  .voice-badge { display: inline-block; margin: .5rem 0 .2rem; padding: .2rem .7rem; border-radius: 999px; background: rgba(255,201,120,.16); color: var(--lamp); font-size: .8rem; font-weight: 700; font-family: "Figtree", sans-serif; }
   .msg { font-family: "Literata", Georgia, serif; font-size: 1.35rem; line-height: 1.55; margin: .8rem 0; }
   .steps { list-style: none; margin: 1rem 0 0; padding: 0; display: grid; gap: .6rem; counter-reset: s; }
   .steps li { counter-increment: s; display: grid; grid-template-columns: 2rem 1fr; gap: .6rem; align-items: center; }
   .steps li::before { content: counter(s); width: 1.7rem; height: 1.7rem; border-radius: 50%; display: grid; place-items: center; background: rgba(255,201,120,.16); color: var(--lamp); font-weight: 800; font-size: .85rem; }
+
+  /* parent view: a concern always sits first, on its own card */
+  .alert { border-radius: var(--r-md); padding: .85rem 1rem; background: var(--surface); border: 1px solid color-mix(in srgb, var(--oops) 35%, var(--line)); border-left: 6px solid var(--oops); display: grid; gap: .25rem; box-shadow: var(--lift); }
+  .alert.watch { border-color: var(--line); border-left-color: var(--hi-deep); }
+  .alert .quote { font-style: italic; color: var(--ink-2); }
+  .days li.flag { background: color-mix(in srgb, var(--oops) 8%, transparent); border-radius: 8px; padding-left: .5rem; }
+
+  /* Study Together */
+  .board { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: .6rem; }
+  .player { background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--r-md); padding: .6rem .8rem; display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem .6rem; }
+  .player.now { border-color: var(--hi); box-shadow: 0 0 0 3px color-mix(in srgb, var(--hi) 30%, transparent); }
+  .gamecode { display: inline-block; font-size: clamp(2.4rem, 7vw, 4rem); font-weight: 800; letter-spacing: .06em; margin: .2rem 0 .6rem; color: var(--hi-text); }
+  :root[data-theme="dark"] .gamecode { color: var(--hi); text-shadow: 0 0 22px rgba(26,210,255,.45); }
+  .homechip { font-size: .75rem; color: var(--ink-2); width: 100%; }
+  .pname { font-weight: 700; flex: 1; }
+  .pscore { font-size: 1.6rem; font-weight: 800; font-feature-settings: "tnum"; }
   .moon { position: absolute; right: 1.6rem; top: 1.4rem; width: 3.2rem; height: 3.2rem; border-radius: 50%; box-shadow: inset -0.9rem -0.4rem 0 0 var(--lamp); transform: rotate(-20deg); opacity: .9; }
+
+  /* swipeable carousel: snap scrolling, arrows, dots, keyboard */
+  .carousel { position: relative; margin-top: 1rem; }
+  .track { display: grid; grid-auto-flow: column; grid-auto-columns: min(78%, 26rem); gap: 0.9rem; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding: 0 0.2rem; padding: 0.3rem 0.2rem 1rem; scrollbar-width: none; overscroll-behavior-x: contain; }
+  .track::-webkit-scrollbar { display: none; }
+  .track:focus-visible { outline: 3px solid var(--new); outline-offset: 2px; border-radius: var(--r-md); }
+  .slide { scroll-snap-align: start; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 1rem 1.15rem 1.1rem; display: flex; flex-direction: column; gap: 0.5rem; box-shadow: var(--lift); min-height: 11rem; }
+  .slide.index { border: 0; }
+  .slide h2 { font-size: 1.15rem; }
+  .slide .ex { margin-top: auto; padding-top: 0.6rem; border-top: 1.5px dashed var(--line); font-size: 0.92rem; color: var(--ink-2); }
+  .slide .ex b { color: var(--hi-text); }
+  .slide { border-top: 3px solid var(--hi); }
+  .slide .actions { margin-top: auto; padding-top: 0.6rem; }
+  .car-nav { display: flex; align-items: center; gap: 0.7rem; }
+  .car-nav .pos { display: flex; gap: 0.35rem; }
+  .car-nav .pos i { width: 0.55rem; height: 0.55rem; border-radius: 50%; background: var(--line); transition: background 160ms, transform 160ms; }
+  .car-nav .pos i.on { background: var(--ink); transform: scale(1.2); }
+  .car-nav button { width: 2.4rem; height: 2.4rem; padding: 0; display: grid; place-items: center; font-size: 1.1rem; }
+  .sources { margin-top: 1rem; display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; font-size: 0.85rem; color: var(--ink-2); }
+  .sources button { padding: 0.25rem 0.7rem; font-size: 0.8rem; font-weight: 600; }
 
   .loading { padding: 2.5rem 1.6rem; color: var(--ink-3); display: flex; gap: 0.8rem; align-items: center; }
   .loading i { width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--hi); animation: pulse 1s ease-in-out infinite; }
@@ -329,6 +373,49 @@
   let timers = [];
   function stopTimers() { timers.forEach(clearInterval); timers = []; }
 
+  /** What the daily routine did on its own, as swipeable cards; today's plan comes last. */
+  const DID = { school: "Synced school", study_set: "Made a study set", research: "Researched beyond your notes", plan: "Today's plan" };
+  function briefingSlides(b) {
+    return carousel(b.did.map((x) => ({ html: `<span class="sub" style="font-size:.8rem">${DID[x.kind] ?? ""}</span><p style="font-size:1.05rem;font-weight:650">${esc(x.text.replace(/^Planned today: /, ""))}</p>` })), "Since yesterday");
+  }
+
+  /** A swipeable row of slides. Works by touch swipe, the arrows, the dots, or the arrow keys. */
+  function carousel(slides, label) {
+    if (!slides.length) return "";
+    return `<div class="carousel" data-carousel>
+      <div class="track" tabindex="0" role="group" aria-roledescription="carousel" aria-label="${esc(label)}">${slides.map((x, i) => `<div class="${x.cls ?? "slide"}" role="group" aria-roledescription="slide" aria-label="${i + 1} of ${slides.length}">${x.html}</div>`).join("")}</div>
+      ${slides.length > 1 ? `<div class="car-nav"><button type="button" data-car="prev" aria-label="Previous">‹</button><div class="pos">${slides.map((_, i) => `<i class="${i ? "" : "on"}"></i>`).join("")}</div><button type="button" data-car="next" aria-label="Next">›</button><span class="sub">Swipe for more</span></div>` : ""}
+    </div>`;
+  }
+  function initCarousels() {
+    root.querySelectorAll("[data-carousel]").forEach((c) => {
+      const track = c.querySelector(".track");
+      const dots = [...c.querySelectorAll(".pos i")];
+      const slides = [...track.children];
+      const step = () => slides[1] ? slides[1].offsetLeft - slides[0].offsetLeft : track.clientWidth;
+      const go = (dir) => track.scrollBy({ left: dir * step(), behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+      c.querySelector('[data-car="prev"]')?.addEventListener("click", () => go(-1));
+      c.querySelector('[data-car="next"]')?.addEventListener("click", () => go(1));
+      track.addEventListener("keydown", (e) => { if (e.key === "ArrowRight") { e.preventDefault(); go(1); } if (e.key === "ArrowLeft") { e.preventDefault(); go(-1); } });
+      track.addEventListener("scroll", () => {
+        // The nearest slide to the left edge; at the very end, the last slide (it can't reach the edge).
+        const atEnd = track.scrollLeft >= track.scrollWidth - track.clientWidth - 4;
+        let i = 0;
+        slides.forEach((sl, j) => { if (Math.abs(sl.offsetLeft - slides[0].offsetLeft - track.scrollLeft) < Math.abs(slides[i].offsetLeft - slides[0].offsetLeft - track.scrollLeft)) i = j; });
+        if (atEnd) i = slides.length - 1;
+        dots.forEach((d, j) => d.classList.toggle("on", j === i));
+      }, { passive: true });
+    });
+  }
+
+  /** Lessons the learner taught us by correcting us: the assistant getting better day by day. */
+  function learnedList(lessons) {
+    if (!lessons || !lessons.length) return "";
+    return `<div class="panel"><h2 style="margin-bottom:.5rem">What I've learned about helping you</h2><ul class="kp">${lessons
+      .map((x) => `<li class="covered"><span>${esc(x.text)} <span class="muted">(${esc(x.when)}${x.source === "detected" ? ", from what you said" : ""})</span></span></li>`)
+      .join("")}</ul></div>`;
+  }
+
   // ---------------------------------------------------------------- views
   const views = {
     welcome(d) {
@@ -355,12 +442,46 @@
           </div>
           <div>${mems ? `<h2 style="margin-bottom:.55rem">I remember</h2><ul class="kp">${mems}</ul>` : `<p class="sub">As we study, I'll remember what works for you. You can ask me to forget anything.</p>`}</div>
         </div>
+        ${(d.lessons || []).length ? `<div style="margin-top:1.2rem">${learnedList(d.lessons)}</div>` : ""}
         ${d.isNew ? `<div class="actions">${btn("Study my notes", "I want to share my notes", "primary")}${btn("Pick a topic", "Teach me a new topic")}</div>` : ""}
       </div>`;
     },
 
+    briefing(d) {
+      return `<div class="card enter"><p class="sub">While you were away</p>
+        <h1 style="margin:.2rem 0 .4rem">${esc(d.title)}</h1>
+        ${briefingSlides(d)}
+        <div class="actions">${btn("Start today's plan", "Let's start today's plan", "primary")}${btn("My study plan", "What's my study plan?")}</div></div>`;
+    },
+
+    research(d) {
+      const slides = d.cards.map((c) => ({ html: `<h2>${esc(c.heading)}</h2><p>${esc(c.body)}</p>${c.example ? `<p class="ex"><b>For you:</b> ${esc(c.example)}</p>` : ""}` }));
+      const src = (d.sources || []).map((x) => `<button type="button" data-link="${esc(x.url)}" title="${esc(x.url)}">${esc(x.domain.replace(/^www\./, ""))}</button>`).join("");
+      return `<div class="card enter"><p class="sub">Beyond your notes, researched on the web</p>
+        <h1 style="margin:.2rem 0 .6rem">${esc(d.title)}</h1>
+        <p class="sub" style="max-width:52ch">${esc(d.overview)}</p>
+        ${carousel(slides, d.title)}
+        ${src ? `<div class="sources">Sources: ${src}</div>` : ""}
+        <div class="actions">${btn("Quiz me on this", `Quiz me on ${d.topic}`, "primary")}${btn("Explain it differently", "Explain it differently")}</div></div>`;
+    },
+
+    lesson_learned(d) {
+      return `<div class="card enter"><p class="sub">Learned from you</p>
+        <h1 style="margin:.2rem 0 1rem">${esc(d.lesson && d.lesson.trim() ? d.lesson : d.title)}</h1>
+        ${learnedList(d.lessons)}</div>`;
+    },
+
+    recheck(d) {
+      return `<div class="card enter"><p class="sub">${esc(d.concept ?? "Your last answer")}</p>
+        <h1 style="margin:.2rem 0 .8rem">${d.overturned ? "You were right" : "Checked again"}</h1>
+        <p class="say" style="font-size:1.1rem">${esc(d.speech)}</p>
+        ${d.overturned && d.lesson ? `<p class="note event" style="margin-top:1rem">Next time: ${esc(d.lesson)}</p>` : ""}
+        <div class="actions">${btn("Keep going", "Next question", "primary")}</div></div>`;
+    },
+
     today(d) {
       const l = d.learner;
+      const since = d.briefing && d.briefing.did.some((x) => x.kind !== "plan") ? `<div style="margin:.4rem 0 1rem"><h2>Since yesterday</h2>${briefingSlides({ did: d.briefing.did.filter((x) => x.kind !== "plan") })}</div>` : "";
       const tiles = [];
       if (d.exam) tiles.push(`<div class="tile"><span class="sub">${esc(d.exam.title)}</span><span class="big-num">${d.exam.daysLeft}</span><span>${d.exam.daysLeft === 1 ? "day to go" : "days to go"}, ${fmtDate(d.exam.date)}</span></div>`);
       if (d.weakSpot) tiles.push(`<div class="tile"><span class="sub">Start here</span><span style="font-size:1.3rem;font-weight:750">${esc(d.weakSpot.title)}</span>${d.weakSpot.note ? `<span class="note" style="margin-top:.3rem">${esc(cap(d.weakSpot.note))}</span>` : ""}</div>`);
@@ -373,14 +494,14 @@
         teach_back: btn("Let me teach it back", "Let me teach it back to you", "primary") + btn("Quiz me", "Quiz me"),
       }[d.suggestion] ?? "";
       return `<div class="card enter"><p class="sub">${esc(d.date)}</p><h1 style="font-size:2.4rem;margin:.2rem 0 1.1rem">Hi, ${esc(l.name)}.</h1>
-        <div class="tiles">${tiles.join("")}</div><div class="actions">${actions}${btn("My plan", "Show my study plan")}</div></div>`;
+        ${since}<div class="tiles">${tiles.join("")}</div><div class="actions">${actions}${btn("My plan", "Show my study plan")}</div></div>`;
     },
 
     deck(d) {
       return `<div class="card enter">
         <div class="row" style="align-items:baseline"><h1 class="grow">${esc(d.deck.title)}</h1><span class="sub">${esc(d.deck.subject)}, ${d.concepts.length} topics</span></div>
-        <ul class="days" style="margin-top:1rem">${d.concepts.map((c, i) => `<li><span class="when">Topic ${i + 1}</span><span>${esc(c.title)}</span>${chip(c.status)}</li>`).join("")}</ul>
-        <div class="actions">${btn("Explain the first one", `Explain ${d.concepts[0]?.title ?? "the first topic"}`, "primary")}${btn("Quiz me", "Quiz me")}${btn("Flashcards", "Let's do flashcards")}</div>
+        ${carousel(d.concepts.map((c, i) => ({ html: `<span class="sub" style="font-size:.8rem">Topic ${i + 1} of ${d.concepts.length}</span><h2>${esc(c.title)}</h2><p style="font-size:.95rem">${esc(c.summary ?? "")}</p><div class="actions">${btn("Explain", `Explain ${c.title}`, "small primary")}${btn("Quiz me", `Quiz me on ${c.title}`, "small")}</div>` })), `${d.deck.title} topics`)}
+        <div class="actions">${btn("Research beyond my notes", `Research ${d.deck.title} beyond my notes`, "primary")}${btn("Quiz me", "Quiz me")}${btn("Flashcards", "Let's do flashcards")}</div>
       </div>`;
     },
 
@@ -425,6 +546,63 @@
         <div class="row"><span class="sub grow">${esc(d.mode === "flashcards" ? "Flashcards" : d.title)}: ${esc(d.concept.title)}</span><div class="dots" aria-label="Question ${d.number} of ${d.total}">${dots}</div></div>
         ${d.hint ? `<p class="note hi" style="margin-top:.9rem">Hint: ${esc(d.hint)}</p>` : ""}
         ${body}</div>`;
+    },
+
+    group_question(d) {
+      const f = d.feedback;
+      const q = d.question;
+      const board = d.players.map((p) => `<div class="player ${p.current ? "now" : ""}"><span class="pname">${esc(p.name)}${p.guest ? ` <span class="muted">(guest)</span>` : ""}</span><span class="pscore">${p.score}</span>${p.streak >= 2 ? `<span class="chip learning">${p.streak} in a row</span>` : ""}</div>`).join("");
+      const opts = q.type === "mcq" && q.options
+        ? `<div class="opts">${q.options.map((o, i) => `<button class="opt" data-say="${esc(o)}"><span>${"ABCD"[i]}</span>${esc(o)}</button>`).join("")}</div>`
+        : q.type === "truefalse"
+          ? `<div class="actions" style="margin-top:0">${btn("True", "True", "primary")}${btn("False", "False")}</div>`
+          : `<p class="sub">${esc(d.currentPlayer)}, say your answer out loud.</p>`;
+      return `<div class="card enter">
+        <div class="board">${board}</div>
+        ${f ? `<div class="fb ${f.verdict}" style="margin-top:1rem"><div><b>${esc(f.player)}: ${f.points ? `+${f.points}` : "0"}</b> ${esc(f.text)}</div></div>` : ""}
+        <div class="row" style="margin-top:1rem"><span class="sub grow">${esc(d.title)}: question ${d.turn} of ${d.totalTurns}</span><span class="chip learning">${esc(d.currentPlayer)}'s turn</span></div>
+        ${d.hint ? `<p class="note hi" style="margin-top:.8rem">Hint: ${esc(d.hint)}</p>` : ""}
+        <p class="q">${esc(q.prompt.replace(/^True or false:\s*/i, ""))}</p>${q.type === "truefalse" ? `<p class="sub" style="margin:-0.5rem 0 1rem">True or false?</p>` : ""}${opts}
+        <div class="actions">${btn("Hint", "Give me a hint")}${btn("Skip", "Skip")}${btn("Scores", "What are the scores?")}</div>
+      </div>`;
+    },
+
+    online_game(d) {
+      const tag = (p) => `<span class="homechip">${p.home === "here" ? "Here" : "At their home"}</span>`;
+      const board = `<div class="board">${d.players.map((p) => `<div class="player ${p.current ? "now" : ""}"><span class="pname">${esc(p.name)}</span><span class="pscore">${d.status === "lobby" ? "" : p.score}</span>${p.streak >= 2 && d.status === "playing" ? `<span class="chip learning">${p.streak} in a row</span>` : ""}${p.winner ? `<span class="chip solid">Winner</span>` : ""}${tag(p)}</div>`).join("")}</div>`;
+      const event = d.lastEvent ? `<p class="note event" style="margin-top:.9rem">${esc(d.lastEvent)}</p>` : "";
+      if (d.status === "lobby") {
+        return `<div class="card enter"><p class="sub">Study Together online · invite only</p>
+          <div class="gamecode">${esc(d.code)}</div>
+          <p class="sub" style="margin-bottom:1rem">${d.isHost ? `Friends say “join game ${esc(d.spokenCode)}” on their own device.` : `Waiting for the host to start.`}</p>
+          ${board}${event}
+          <div class="actions">${d.isHost ? btn("Start the game", "Start the game", d.players.length > 1 ? "primary" : "") : ""}${btn("Leave", "Leave the game")}</div></div>`;
+      }
+      if (d.status === "done") {
+        return `<div class="card enter"><p class="sub">${d.title === "Study Together online" ? "Game over" : "Study Together online"}</p><h1 style="margin:.2rem 0 .8rem">${esc(d.title)}</h1>
+          ${board}${event}
+          <div class="actions">${d.isHost ? btn("Play again", "Start an online game", "primary") : ""}${btn("Done for now", "I'm done for today")}</div></div>`;
+      }
+      const q = d.question;
+      const answer = !d.yourTurn ? "" : q.type === "mcq" && q.options
+        ? `<div class="opts">${q.options.map((o, i) => `<button class="opt" data-say="${esc(o)}"><span>${"ABCD"[i]}</span>${esc(o)}</button>`).join("")}</div>`
+        : q.type === "truefalse"
+          ? `<div class="actions" style="margin-top:0">${btn("True", "True", "primary")}${btn("False", "False")}</div>`
+          : `<p class="sub">Say your answer out loud.</p>`;
+      return `<div class="card enter">
+        ${board}${event}
+        <div class="row" style="margin-top:1rem"><span class="sub grow">${esc(d.title)}: question ${d.turn} of ${d.totalTurns}</span><span class="chip ${d.yourTurn ? "solid" : "learning"}">${d.yourTurn ? "Your turn" : `${esc(d.currentPlayer)}'s turn`}</span></div>
+        ${d.hint ? `<p class="note hi" style="margin-top:.8rem">Hint: ${esc(d.hint)}</p>` : ""}
+        ${d.yourTurn ? `<p class="q">${esc(q.prompt.replace(/^True or false:\s*/i, ""))}</p>${q.type === "truefalse" ? `<p class="sub" style="margin:-0.5rem 0 1rem">True or false?</p>` : ""}${answer}` : `<p class="q muted">Waiting for ${esc(d.currentPlayer)} to answer at their home…</p>`}
+        <div class="actions">${d.yourTurn ? btn("Hint", "Give me a hint") + btn("Skip", "Skip") : ""}${btn("Scores", "What are the scores?")}${btn(d.isHost ? "End game" : "Leave", d.isHost ? "End the game" : "Leave the game")}</div>
+      </div>`;
+    },
+
+    group_summary(d) {
+      const rows = d.players.map((p, i) => `<li class="${p.winner ? "today" : ""}"><span class="when">${p.winner ? "Winner" : `#${i + 1}`}</span><span>${esc(p.name)}${p.guest ? ` <span class="muted">(guest)</span>` : ""} <span class="sub">${p.correct} of ${p.answered} right${p.bestStreak >= 2 ? `, best streak ${p.bestStreak}` : ""}</span></span><span class="pscore">${p.score}</span></li>`).join("");
+      return `<div class="card enter"><p class="sub">Study Together</p><h1 style="margin:.2rem 0 .8rem">${esc(d.title)}</h1>
+        <ul class="days">${rows}</ul>
+        <div class="actions">${btn("Rematch", "Rematch!", "primary")}${btn("Done for now", "I'm done for today")}</div></div>`;
     },
 
     quiz_summary(d) {
@@ -540,6 +718,105 @@
       </div>`;
     },
 
+    meet(d) {
+      const l = d.learner;
+      return `<div class="card enter">
+        <p class="sub">Nice to meet you</p>
+        <h1 style="font-size:2.8rem;margin:.2rem 0 1rem">${esc(d.title)}</h1>
+        ${d.known.length ? `<div class="index" style="max-width:34rem"><span class="label">What your ${esc(d.addedBy.relation.toLowerCase())} told me</span>${d.known.map((k) => `<div>${esc(cap(k.replace(/^you're in /, "in ").replace(/^you're (\d+)$/, "$1 years old").replace(/^you love /, "loves ")))}</div>`).join("")}</div>` : ""}
+        <p class="say" style="margin-top:1.2rem"><mark>${esc(d.question)}</mark></p>
+      </div>`;
+    },
+
+    parent_saved(d) {
+      const c = d.child;
+      return `<div class="card enter">
+        <p class="sub">${d.parent ? `Parent: ${esc(d.parent.name)} (${esc(d.parent.relation)})` : "Parent note"}</p>
+        <h1 style="margin:.2rem 0 1rem">${esc(d.title)}</h1>
+        <div class="two">
+          <div class="stack">
+            <div><h2>I'll talk to ${esc(c.name)} like</h2><p style="margin-top:.3rem">a ${esc(c.bandLabel)} learner <span class="muted">(${esc(c.level)})</span></p></div>
+            ${c.interests.length ? `<div><h2>Examples from</h2><div class="chips" style="margin-top:.45rem">${c.interests.map((i) => `<span class="chip">${esc(i)}</span>`).join("")}</div></div>` : ""}
+          </div>
+          <div>${d.notes.length ? `<h2 style="margin-bottom:.55rem">Keeping in mind</h2><ul class="kp">${d.notes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>` : `<p class="sub">Add anything I should keep in mind, any time.</p>`}</div>
+        </div>
+        <div class="actions">${btn(`How is ${c.name} doing?`, `How is ${c.name} doing?`)}</div>
+      </div>`;
+    },
+
+    parent_overview(d) {
+      const c = d.child;
+      const CAT = { self_harm: "Safety", abuse: "Safety", danger: "Safety", bullying: "Bullying", distress: "Feeling low" };
+      const alerts = (d.concerns || []).map((x) => `<div class="alert ${x.severity}"><div><b>${esc(CAT[x.category] ?? "Concern")}${x.isNew ? " (new)" : ""}</b><span class="sub" style="margin-left:.5rem">${esc(x.when)}</span></div><div>${esc(x.summary)}.</div>${x.excerpt ? `<div class="quote">“${esc(x.excerpt)}”</div>` : ""}</div>`).join("");
+      const map = (d.mastery || []).map((m) => `<div class="cell ${m.status}"><span style="font-weight:650">${esc(m.title)}</span><div class="meter"><i style="width:${Math.max(4, Math.round(m.strength * 100))}%"></i></div>${chip(m.status)}</div>`).join("");
+      const recent = (d.recent || []).map((t) => `<li><span class="when">${esc(cap(t.when))}</span><span><b>${esc(c.name)}:</b> ${esc(t.heard)}<br><span class="sub">Study Buddy: ${esc(t.said.slice(0, 160))}${t.said.length > 160 ? "…" : ""}</span></span><span></span></li>`).join("");
+      const vis = { full: "Full history", summary: "Summary", private: "Private (adult)" }[d.visibility];
+      return `<div class="card enter">
+        <div class="row" style="align-items:baseline"><div class="grow"><p class="sub">Parent view</p><h1 style="margin:.2rem 0 .3rem">${esc(d.title)}</h1></div><span class="chip ${d.visibility === "full" ? "solid" : d.visibility === "summary" ? "learning" : "new"}">${esc(vis)}</span></div>
+        ${alerts ? `<div class="stack" style="margin:.8rem 0 1rem">${alerts}</div>` : ""}
+        <div class="tiles" style="margin-top:.8rem">
+          <div class="tile"><span class="sub">Minutes studied</span><span class="big-num">${d.minutes}</span></div>
+          <div class="tile"><span class="sub">Streak</span><span class="big-num" style="color:var(--good)">${d.streak.current}</span><span>Best ${d.streak.best}</span></div>
+          <div class="tile"><span class="sub">This week</span><span class="big-num" style="color:var(--hi-text)">${d.accuracy === null ? "–" : `${d.accuracy}%`}</span><span>answers right</span></div>
+          <div class="tile"><span class="sub">Conversations</span><span class="big-num">${d.conversations}</span><span>this week</span></div>
+        </div>
+        ${d.school ? `<p class="note ${d.school.missing ? "" : "hi"}" style="margin-top:1rem">From school: ${d.school.dueSoon} due in the next few days${d.school.missing ? `, ${d.school.missing} past due` : ""}.</p>` : ""}
+        ${map ? `<h2 style="margin:1.2rem 0 .6rem">Topics</h2><div class="map">${map}</div>` : ""}
+        ${d.summary ? `<h2 style="margin:1.2rem 0 .5rem">This week, in summary</h2><div class="chips">${d.summary.topics.map((x) => `<span class="chip">${esc(x)}</span>`).join("") || `<span class="sub">No study topics yet.</span>`}</div>${d.summary.moods.length ? `<p class="sub" style="margin-top:.5rem">Said about how they feel: ${esc(d.summary.moods.join("; "))}</p>` : ""}` : ""}
+        ${recent ? `<h2 style="margin:1.2rem 0 .3rem">Latest conversations</h2><ul class="days">${recent}</ul>` : ""}
+        ${(d.sharedWithMe || []).length ? `<p class="note hi" style="margin-top:1rem">${esc(c.name)} told me: ${esc(d.sharedWithMe.slice(-3).join("; "))}</p>` : ""}
+        <p class="sub" style="margin-top:1rem">${esc(d.transparencyNote)}</p>
+        <div class="actions">${d.visibility === "full" ? btn("See all conversations", `Show me ${c.name}'s conversations`) : d.visibility === "summary" ? btn("Switch to full history", `Turn on full history for ${c.name}`) : ""}</div>
+      </div>`;
+    },
+
+    parent_history(d) {
+      const rows = d.turns.map((t) => `<li class="${t.flagged ? "flag" : ""}"><span class="when">${esc(cap(t.when))}</span><span><b>${esc(d.child.name)}:</b> ${esc(t.heard)}<br><span class="sub">Study Buddy: ${esc(t.said.slice(0, 220))}${t.said.length > 220 ? "…" : ""}</span></span><span>${t.flagged ? `<span class="chip shaky">Flagged</span>` : ""}</span></li>`).join("");
+      return `<div class="card enter"><p class="sub">Parent view, last ${d.days} days</p><h1 style="margin:.2rem 0 .8rem">${esc(d.title)}</h1>
+        ${rows ? `<ul class="days">${rows}</ul>` : `<p class="say">No conversations yet.</p>`}
+        <div class="actions">${btn("Delete this history", `Delete ${d.child.name}'s conversation history`)}</div></div>`;
+    },
+
+    parent_settings(d) {
+      return `<div class="card enter"><p class="sub">Parent settings</p><h1 style="margin:.2rem 0 .6rem">${esc(d.title)}</h1>
+        <p class="say">${d.visibility === "full" ? "Full history: you see every conversation." : d.visibility === "summary" ? "Summary: you see topics, progress and mood." : "Private."}</p>
+        <p class="sub" style="margin-top:.6rem">Safety concerns always come to you, whatever this is set to. ${esc(d.child.name)} is told about any change.</p></div>`;
+    },
+
+    concern_flagged(d) {
+      document.body.classList.add("story");
+      return `<div class="storybook enter" style="position:relative">
+        <h1>${esc(d.title)}</h1>
+        <p class="page" style="min-height:0">${esc(d.speech)}</p>
+        ${d.guardian ? `<p class="voice-badge">Letting your ${esc(d.guardian.toLowerCase())} know</p>` : ""}
+      </div>`;
+    },
+
+    school_connect(d) {
+      return `<div class="card enter"><p class="sub">School</p><h1 style="margin:.2rem 0 .8rem">${esc(d.title)}</h1>
+        <p class="say">Read-only: classes, assignments, due dates, tests and teacher notes. Nothing is ever submitted.</p>
+        ${d.live ? "" : `<p class="sub" style="margin-top:.6rem">Test mode: connects a sample class.</p>`}
+        <div class="actions"><button class="primary" data-link="${esc(d.url)}">Open the connect page</button></div></div>`;
+    },
+
+    school_synced(d) {
+      return `<div class="card enter"><p class="sub">School synced${d.live ? "" : " (sample class)"}</p><h1 style="margin:.2rem 0 1rem">${esc(d.learner.name)}'s classes</h1>
+        <div class="tiles">${d.courses.map((c) => `<div class="tile"><span style="font-size:1.15rem;font-weight:750">${esc(c.name)}</span><span class="sub">${esc([c.teacher, c.section].filter(Boolean).join(", "))}</span></div>`).join("")}</div>
+        ${d.newExams.length ? `<p class="note hi" style="margin-top:1rem">Added to your study plan: ${esc(d.newExams.join("; "))}</p>` : ""}
+        ${d.studySets.length ? `<p class="note hi" style="margin-top:.6rem">Teacher notes turned into a study set: ${esc(d.studySets.join("; "))}</p>` : ""}
+        <div class="actions">${btn("What's due?", "What homework do I have?", "primary")}${btn("Study for the test", "Quiz me")}</div></div>`;
+    },
+
+    school_homework(d) {
+      const LABEL = { missing: "Past due", todo: "To do", done: "Turned in" };
+      const rows = d.items.map((i) => `<li class="${i.state === "missing" ? "flag" : ""}"><span class="when">${esc(i.when ? cap(i.when) : "")}</span><span><b>${esc(i.title)}</b>${i.kind === "test" ? ` <span class="chip learning">Test</span>` : ""}<br><span class="sub">${esc(i.course)}${i.teacher ? `, ${esc(i.teacher)}` : ""}</span></span><span class="chip ${i.state === "done" ? "solid" : i.state === "missing" ? "shaky" : "new"}">${LABEL[i.state]}</span></li>`).join("");
+      return `<div class="card enter"><p class="sub">From school</p><h1 style="margin:.2rem 0 .8rem">${esc(d.title)}</h1>
+        ${rows ? `<ul class="days">${rows}</ul>` : `<p class="say">${esc(d.speech)}</p>`}
+        ${d.items.some((i) => i.kind === "test") ? `<div class="actions">${btn("Study for the test", "Quiz me", "primary")}${btn("My plan", "Show my study plan")}</div>` : ""}</div>`;
+    },
+
+    school_disconnected(d) { return `<div class="card enter"><h1>${esc(d.title)}</h1><p class="sub" style="margin-top:.4rem">${esc(d.speech)}</p></div>`; },
+
     voice_enroll(d) {
       document.body.classList.add("story");
       return `<div class="storybook enter" style="position:relative">
@@ -579,7 +856,18 @@
     },
 
     cancelled(d) { return `<div class="card"><h1>${esc(d.title)}</h1><p class="sub" style="margin-top:.4rem">${esc(d.speech)}</p></div>`; },
-    forgotten(d) { return `<div class="card"><h1>${esc(d.title)}</h1><p class="sub" style="margin-top:.4rem">${esc(d.speech)}</p></div>`; },
+    school_needs_parent(d) {
+      return `<div class="card enter"><p class="sub">School not connected</p><h1 style="margin:.2rem 0 .8rem">A parent needs to connect this</h1>
+        <p class="say" style="font-size:1.1rem">${esc(d.speech)}</p></div>`;
+    },
+    forgotten(d) { return `<div class="card"><h1>${esc(d.title)}</h1><p class="sub" style="margin-top:.4rem">${esc(d.speech)}</p>${d.lessons ? learnedList(d.lessons) : ""}</div>`; },
+    study_sets_deleted(d) {
+      const left = (d.remaining ?? []).map((x) => `<li><b>${esc(x.title)}</b> <span class="sub">${x.topics} ${x.topics === 1 ? "topic" : "topics"}</span></li>`).join("");
+      return `<div class="card enter"><p class="sub">Deleted ${esc((d.deleted ?? []).join(", "))}</p>
+        <h1 style="margin:.2rem 0 .8rem">${d.remaining?.length ? "Your study sets now" : "No study sets yet"}</h1>
+        ${left ? `<ul class="kp">${left}</ul>` : `<p class="sub">Your profile and what I've learned about you are still here.</p>`}
+        <div class="actions">${d.remaining?.length ? btn("My plan", "Show my study plan", "primary") : btn("Learn a topic", "Teach me something new", "primary")}</div></div>`;
+    },
     memory_saved(d) { return `<div class="card"><p class="sub">I'll remember</p><h1 style="margin-top:.3rem">${esc(d.memory?.text ?? "")}</h1></div>`; },
     error(d) { return `<div class="card"><p class="say">${esc(d.speech)}</p></div>`; },
   };
@@ -598,6 +886,7 @@
     const view = views[data?.kind];
     try {
       root.innerHTML = view ? view(data) : `<div class="card"><p class="say">${esc(data?.speech ?? "")}</p></div>`;
+      initCarousels();
     } catch (err) {
       console.error(err);
       root.innerHTML = `<div class="card"><p class="say">${esc(data?.speech ?? "")}</p></div>`;
