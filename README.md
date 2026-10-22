@@ -1,8 +1,8 @@
-# Study Buddy
+# Vidya
 
 **A personal study mentor on Alexa+ that remembers how you learn.** Tell it who you are, from a 7-year-old to a second-year engineering student, and it teaches at your level, using examples from your world. Share your notes, and it explains them through what you love ("meiosis is like picking two new cricket teams for a charity match"). It quizzes you out loud and remembers exactly what you got wrong. The next day it says, *"Last time you mixed up interphase with prophase, so let's start there."* Family mode turns a value a parent wants to teach into a bedtime story.
 
-Built for the **Alexa+ track** of *Build, Ship, Shape: Amazon Developer Hackathon 2026*. *Study Buddy* is a working name; it's set in one place (`BUDDY_BRAND`).
+Built for the **Alexa+ track** of *Build, Ship, Shape: Amazon Developer Hackathon 2026*. *Vidya* is a working name; it's set in one place (`BUDDY_BRAND`).
 
 | | |
 |---|---|
@@ -27,7 +27,7 @@ Students don't lack information. They lack a patient mentor who knows them. The 
 
 ## Built for kids: parents in control, safety goes to a human
 
-An AI shouldn't be a child's secret-keeper, or the one they lean on when something is seriously wrong. Study Buddy is designed around that.
+An AI shouldn't be a child's secret-keeper, or the one they lean on when something is seriously wrong. Vidya is designed around that.
 
 | Age | What parents can see | Serious concerns |
 |---|---|---|
@@ -50,7 +50,7 @@ An AI shouldn't be a child's secret-keeper, or the one they lean on when somethi
 
 ### What the judges asked for, and where it lives
 
-| "Creative" signal from the rules | In Study Buddy |
+| "Creative" signal from the rules | In Vidya |
 |---|---|
 | Keeps context across sessions | Learner memory, misconceptions, exam-aware spaced review ([`mentor.ts`](packages/mcp-server/src/domain/mentor.ts), [`srs.ts`](packages/mcp-server/src/domain/srs.ts)) |
 | Agentic workflow across services | Notes become a study set, then explanations, quizzes and grading, then the mastery map and an exam plan, then the next day's review |

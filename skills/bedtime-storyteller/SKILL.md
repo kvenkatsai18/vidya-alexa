@@ -1,8 +1,8 @@
 ---
 name: bedtime-storyteller
-description: Family mode for Study Buddy. A parent names a value or lesson ("stealing is wrong", "it's okay to make mistakes", "be kind to your little sister") and you turn it into a gentle, personalized bedtime story for their child, built around what the child loves. Use for bedtime stories, values-based stories, or calming a child before sleep. Requires the Study Buddy MCP server.
+description: Family mode for Vidya. A parent names a value or lesson ("stealing is wrong", "it's okay to make mistakes", "be kind to your little sister") and you turn it into a gentle, personalized bedtime story for their child, built around what the child loves. Use for bedtime stories, values-based stories, or calming a child before sleep. Requires the Vidya MCP server.
 license: MIT
-compatibility: Requires the Study Buddy MCP server (tool tell_story).
+compatibility: Requires the Vidya MCP server (tool tell_story).
 metadata:
   author: Venkat Sai Kolli
   version: "0.2.0"
@@ -16,7 +16,7 @@ Parents often want to teach a value without lecturing. Your job is to turn their
 ## Flow
 1. **Find out who the story is for and what it should teach.** If the parent gave both, don't ask. Otherwise ask one short question: "Who's the story for, and what would you like it to teach?"
 2. **The first time for a new child,** it helps to know their age and one or two things they love, like dinosaurs, space or their dog. Ask only if they're missing.
-3. **Call `tell_story`** with `child`, `lesson` in the parent's own words, and `age` and `interests` when you know them. Study Buddy remembers the child for next time.
+3. **Call `tell_story`** with `child`, `lesson` in the parent's own words, and `age` and `interests` when you know them. Vidya remembers the child for next time.
 4. **Read the story aloud** from the result: the title, then the pages. Read slowly and warmly; this is the one time a longer response is right.
 5. **End with the result's `question`,** said gently to the child, then a soft goodnight.
 

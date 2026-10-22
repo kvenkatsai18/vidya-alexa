@@ -122,7 +122,7 @@ app.get("/voice/enroll", (req, res) => {
   const token = String(req.query.token ?? "");
   const studio = homes.findByToken(token)?.studio;
   const e = studio?.enrollment(token);
-  if (!studio || !e) return void res.status(410).type("html").send("<!doctype html><meta charset=utf-8><body style='font-family:system-ui;background:#12163a;color:#f4ecdd;padding:40px'><h1>This link has expired</h1><p>Ask Study Buddy to set up your story voice again.</p></body>");
+  if (!studio || !e) return void res.status(410).type("html").send("<!doctype html><meta charset=utf-8><body style='font-family:system-ui;background:#12163a;color:#f4ecdd;padding:40px'><h1>This link has expired</h1><p>Ask Vidya to set up your story voice again.</p></body>");
   const cfg = { token: e.token, parentName: e.parentName, relation: e.relation, consentPhrase: e.consentPhrase, passage: studio.passage, live: studio.provider.live };
   const html = readFileSync(path.join(here, "ui/voice-enroll.html"), "utf8").replace("__CONFIG__", () => JSON.stringify(cfg).replace(/</g, "\\u003c"));
   res.setHeader("Cache-Control", "no-store");
@@ -197,7 +197,7 @@ app.get("/school/connect", (req, res) => {
   const home = homes.findByToken(token);
   const school = home?.school;
   const e = school?.enrollment(token);
-  if (!home || !school || !e) return void res.status(410).type("html").send(page("This link has expired", "<p>Ask Study Buddy to connect school again.</p>"));
+  if (!home || !school || !e) return void res.status(410).type("html").send(page("This link has expired", "<p>Ask Vidya to connect school again.</p>"));
   const learner = home.store.get().learners.find((l) => l.id === e.learnerId);
   const cfg = { token: e.token, learner: learner?.name ?? "", by: e.connectedBy, live: school.provider.live, authUrl: school.provider.authUrl(e.token, SCHOOL_REDIRECT) };
   const html = readFileSync(path.join(here, "ui/school-connect.html"), "utf8").replace("__CONFIG__", () => JSON.stringify(cfg).replace(/</g, "\\u003c"));

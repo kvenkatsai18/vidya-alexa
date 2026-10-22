@@ -1,4 +1,4 @@
-// Runs the Study Buddy MCP server and the Alexa+ simulator together: `npm run dev`.
+// Runs the Vidya MCP server and the Alexa+ simulator together: `npm run dev`.
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 

@@ -13,7 +13,7 @@ export function dataRoot(): string {
 }
 
 /**
- * Durable household memory. Everything a returning learner expects Study Buddy to remember
+ * Durable household memory. Everything a returning learner expects Vidya to remember
  * (profile, interests, what clicked, mistakes, review schedule, exams, stories) lives here, so a
  * conversation can pick up days later in a brand-new MCP session.
  */

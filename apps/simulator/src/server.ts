@@ -66,10 +66,10 @@ app.get("/api/config", (_req, res) => {
 
 app.post("/api/sessions", async (req, res) => {
   if (MODE === "offline") {
-    // No pre-made demo: Study Buddy only runs with a real model.
+    // No pre-made demo: Vidya only runs with a real model.
     return void res.status(503).json({
       needsAi: true,
-      error: "Study Buddy needs an AI connection. Add AWS credentials with Amazon Bedrock access (aws configure, region us-east-1), then restart with npm run dev.",
+      error: "Vidya needs an AI connection. Add AWS credentials with Amazon Bedrock access (aws configure, region us-east-1), then restart with npm run dev.",
     });
   }
   try {
@@ -89,7 +89,7 @@ app.post("/api/sessions", async (req, res) => {
       tools: s.mcp.tools.map((t) => ({ name: t.name, title: t.title, hasUi: !!(t._meta as any)?.ui?.resourceUri })),
     });
   } catch (e) {
-    res.status(502).json({ error: `Couldn't reach the Study Buddy MCP server at ${MCP_URL}. Is it running? (${(e as Error).message})` });
+    res.status(502).json({ error: `Couldn't reach the Vidya MCP server at ${MCP_URL}. Is it running? (${(e as Error).message})` });
   }
 });
 

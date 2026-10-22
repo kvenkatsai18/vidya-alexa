@@ -39,7 +39,7 @@ export class ClaudeAgent implements VoiceAgent {
 
   /**
    * Answers the server's MCP sampling requests (sampling/createMessage) with the same model, so the
-   * Study Buddy server can generate decks, explanations and grades without an API key of its own.
+   * Vidya server can generate decks, explanations and grades without an API key of its own.
    */
   async sample(params: CreateMessageRequest["params"]): Promise<CreateMessageResult> {
     const messages = params.messages.map((m) => ({
@@ -68,7 +68,7 @@ export class ClaudeAgent implements VoiceAgent {
   }
 
   private system(ctx: AgentContext): string {
-    return [...this.opts.skills.map((sk) => sk.instructions), DEVICE_CONTEXT, ctx.mcp.instructions ? `## Study Buddy server instructions\n${ctx.mcp.instructions}` : "", DEVICE_RULES]
+    return [...this.opts.skills.map((sk) => sk.instructions), DEVICE_CONTEXT, ctx.mcp.instructions ? `## Vidya server instructions\n${ctx.mcp.instructions}` : "", DEVICE_RULES]
       .filter(Boolean)
       .join("\n\n");
   }

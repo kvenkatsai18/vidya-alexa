@@ -19,10 +19,10 @@ const MAX_TOOL_ROUNDS = 8;
  * Smaller models drift into chat-style answers (headings, 140 words) over a long conversation, even with
  * the rules in the system prompt. A one-line reminder on every turn keeps it sounding like a voice.
  */
-const VOICE_REMINDER = "[Voice device: call the Study Buddy tools as usual (explaining, quizzing, repeating a question all go through them), then say a few short spoken sentences, no headings or lists. Say a tool's speech as it is, don't expand it.]";
+const VOICE_REMINDER = "[Voice device: call the Vidya tools as usual (explaining, quizzing, repeating a question all go through them), then say a few short spoken sentences, no headings or lists. Say a tool's speech as it is, don't expand it.]";
 
 /**
- * Amazon Nova on Amazon Bedrock as the device's "brain": the Converse API with the Study Buddy MCP
+ * Amazon Nova on Amazon Bedrock as the device's "brain": the Converse API with the Vidya MCP
  * tools. Any Bedrock model with tool use works through BUDDY_MODEL.
  */
 export class BedrockAgent implements VoiceAgent {
@@ -57,7 +57,7 @@ export class BedrockAgent implements VoiceAgent {
   }
 
   private system(ctx: AgentContext): string {
-    return [...this.opts.skills.map((sk) => sk.instructions), DEVICE_CONTEXT, ctx.mcp.instructions ? `## Study Buddy server instructions\n${ctx.mcp.instructions}` : "", DEVICE_RULES]
+    return [...this.opts.skills.map((sk) => sk.instructions), DEVICE_CONTEXT, ctx.mcp.instructions ? `## Vidya server instructions\n${ctx.mcp.instructions}` : "", DEVICE_RULES]
       .filter(Boolean)
       .join("\n\n");
   }

@@ -2,7 +2,7 @@
   "name": "study-buddy",
   "private": true,
   "version": "0.1.0",
-  "description": "Study Buddy: a personalized Alexa+ study mentor (MCP server + Agent Skills + Alexa+ simulator).",
+  "description": "Vidya: a personalized Alexa+ study mentor (MCP server + Agent Skills + Alexa+ simulator).",
   "license": "MIT",
   "type": "module",
   "workspaces": [

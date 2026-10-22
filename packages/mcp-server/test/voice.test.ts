@@ -60,7 +60,7 @@ describe("parent story voices", () => {
   it("checks consent and recording length from the audio itself", () => {
     const phrase = consentPhrase("Asha");
     assert.match(phrase, /I'm Asha, and I agree/);
-    assert.ok(consentMatches("Asha", "i'm asha and i agree to let study buddy read stories and messages to my family in my voice"));
+    assert.ok(consentMatches("Asha", "i'm asha and i agree to let vidya read stories and messages to my family in my voice"));
     assert.ok(!consentMatches("Asha", "once upon a time on a hill"));
     assert.ok(!consentMatches("Asha", "I'm Priya and I agree to let you use my voice"), "someone else's name doesn't count");
     assert.equal(Math.round(wavSeconds(wav(25))), 25);

@@ -6,7 +6,7 @@ import { structured, type AgentContext, type VoiceAgent } from "./agent.ts";
 
 /**
  * Scripted agent used when no LLM is configured, so the simulator (and the judges) can run the whole
- * experience without an API key. It maps utterances to Study Buddy MCP tool calls with an intent
+ * experience without an API key. It maps utterances to Vidya MCP tool calls with an intent
  * router plus conversational state, and speaks each tool's voice-ready `speech` field.
  */
 

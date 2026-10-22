@@ -107,7 +107,7 @@ export interface Result {
 
 export class BuddyError extends Error {}
 
-export const BRAND = process.env.BUDDY_BRAND ?? "Study Buddy";
+export const BRAND = process.env.BUDDY_BRAND ?? "Vidya";
 
 const PRAISE: Record<Learner["band"], string[]> = {
   early: ["Yay, you got it!", "Wow, super job!", "Yes! High five!"],

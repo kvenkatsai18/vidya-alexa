@@ -1,4 +1,4 @@
-# Study Buddy: the MCP server (:8787) and the Alexa+ simulator device page (:5173) in one image.
+# Vidya: the MCP server (:8787) and the Alexa+ simulator device page (:5173) in one image.
 # Build: docker build -t study-buddy .   Run with deploy/docker-compose.yml (adds HTTPS via Caddy).
 FROM node:22-slim
 

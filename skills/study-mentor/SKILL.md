@@ -1,8 +1,8 @@
 ---
 name: study-mentor
-description: Voice-first personal study mentor for students of any level, from primary school to university and adult learners, on Alexa+-style devices. Use when someone wants help studying, preparing for an exam, understanding a concept, being quizzed, making flashcards, summarizing notes, or staying focused instead of scrolling. Personalizes everything to the learner's class/age, interests and history. Requires the Study Buddy MCP server.
+description: Voice-first personal study mentor for students of any level, from primary school to university and adult learners, on Alexa+-style devices. Use when someone wants help studying, preparing for an exam, understanding a concept, being quizzed, making flashcards, summarizing notes, or staying focused instead of scrolling. Personalizes everything to the learner's class/age, interests and history. Requires the Vidya MCP server.
 license: MIT
-compatibility: Requires the Study Buddy MCP server (Streamable HTTP, MCP 2025-11-25). Sampling, elicitation and MCP Apps support improve the experience but are optional.
+compatibility: Requires the Vidya MCP server (Streamable HTTP, MCP 2025-11-25). Sampling, elicitation and MCP Apps support improve the experience but are optional.
 metadata:
   author: Venkat Sai Kolli
   version: "0.2.0"

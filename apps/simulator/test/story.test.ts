@@ -92,7 +92,7 @@ it("runs the study story by voice: onboarding, notes, explanation, quiz, memory 
   await session.close();
 });
 
-it("parent sets up a child by voice; the child is greeted and gets to know Study Buddy", async () => {
+it("parent sets up a child by voice; the child is greeted and gets to know Vidya", async () => {
   const session = await Session.create(new OfflineAgent(), `${base}/mcp`);
   const events: SimEvent[] = [];
   session.subscribe((e) => events.push(e));

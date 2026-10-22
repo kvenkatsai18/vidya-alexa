@@ -226,7 +226,7 @@ export class Session {
     try {
       const result = await this.ctx().callTool("add_material", { title, text });
       const sc = result.structuredContent as { speech?: string; title?: string } | undefined;
-      this.agent.note?.(`The learner just shared notes titled "${title}" from their phone. Study Buddy already added them as the study set "${sc?.title ?? title}" and told them so.`);
+      this.agent.note?.(`The learner just shared notes titled "${title}" from their phone. Vidya already added them as the study set "${sc?.title ?? title}" and told them so.`);
       this.emit({ type: "speech", text: sc?.speech ?? "Got your notes." });
     } catch (e) {
       this.emit({ type: "error", message: (e as Error).message });
@@ -300,7 +300,7 @@ export class Session {
         const r = await this.ctx().callTool("flag_concern", { category: worry.category, severity: worry.severity, summary: worry.summary, excerpt: utterance });
         const sc = (r.structuredContent ?? {}) as { speech?: string; guardian?: string | null };
         const speech = sc.speech || "Thank you for telling me. Please talk to an adult you trust about this.";
-        this.agent.note?.(`The learner just said: "${utterance}". Study Buddy already answered with a caring safety reply${sc.guardian ? ` and alerted their ${sc.guardian.toLowerCase()}` : ""}. Be gentle, and don't go back to studying unless they ask.`);
+        this.agent.note?.(`The learner just said: "${utterance}". Vidya already answered with a caring safety reply${sc.guardian ? ` and alerted their ${sc.guardian.toLowerCase()}` : ""}. Be gentle, and don't go back to studying unless they ask.`);
         this.emit({ type: "speech", text: speech });
         await this.mcp.callTool("record_turn", { heard: utterance, said: speech, phase: "said" }).catch(() => undefined);
         return;

@@ -1,4 +1,4 @@
-# Hosting Study Buddy on AWS
+# Hosting Vidya on AWS
 
 One small server runs everything:
 

@@ -66,7 +66,7 @@ async function boot() {
   }
   if (!res.ok) {
     $("fServer").textContent = "Not connected";
-    setCaption(data.error ?? "Couldn't connect to the Study Buddy MCP server.");
+    setCaption(data.error ?? "Couldn't connect to the Vidya MCP server.");
     return;
   }
   state.session = data;
@@ -1291,7 +1291,7 @@ function showToast(title, body) {
   setTimeout(() => el.remove(), 9600);
 }
 
-/** A small note on the device when Study Buddy learns from a correction. */
+/** A small note on the device when Vidya learns from a correction. */
 function showLearned(lesson) {
   const el = document.createElement("div");
   el.className = "learned";

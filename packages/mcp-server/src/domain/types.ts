@@ -45,7 +45,7 @@ export interface Learner {
   minutesStudied: number;
   /** Set when a parent created this profile; the child is greeted warmly the first time they talk. */
   addedBy?: { name: string; relation: string };
-  /** When the learner first talked to Study Buddy themselves. */
+  /** When the learner first talked to Vidya themselves. */
   metAt?: string;
   /**
    * What a parent can see. Defaults by age: under 13 "full", 13-17 "summary", adults "private".
@@ -61,7 +61,7 @@ export interface Learner {
   /** How they said they feel today ("tired", "stressed"...). Adapts session length and tone; expires daily. */
   mood?: { state: string; day: string };
   /**
-   * Lessons the learner taught Study Buddy by correcting it ("call me Priya A", "too long", "you
+   * Lessons the learner taught Vidya by correcting it ("call me Priya A", "too long", "you
    * graded that wrong"). Applied to every future session and every generated explanation.
    */
   lessons?: Lesson[];

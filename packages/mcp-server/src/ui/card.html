@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Study Buddy card</title>
+<title>Vidya card</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..800;1,400..600&family=Literata:ital,opsz,wght@0,7..72,400..700;1,7..72,400&display=swap" rel="stylesheet" />
@@ -749,7 +749,7 @@
       const CAT = { self_harm: "Safety", abuse: "Safety", danger: "Safety", bullying: "Bullying", distress: "Feeling low" };
       const alerts = (d.concerns || []).map((x) => `<div class="alert ${x.severity}"><div><b>${esc(CAT[x.category] ?? "Concern")}${x.isNew ? " (new)" : ""}</b><span class="sub" style="margin-left:.5rem">${esc(x.when)}</span></div><div>${esc(x.summary)}.</div>${x.excerpt ? `<div class="quote">“${esc(x.excerpt)}”</div>` : ""}</div>`).join("");
       const map = (d.mastery || []).map((m) => `<div class="cell ${m.status}"><span style="font-weight:650">${esc(m.title)}</span><div class="meter"><i style="width:${Math.max(4, Math.round(m.strength * 100))}%"></i></div>${chip(m.status)}</div>`).join("");
-      const recent = (d.recent || []).map((t) => `<li><span class="when">${esc(cap(t.when))}</span><span><b>${esc(c.name)}:</b> ${esc(t.heard)}<br><span class="sub">Study Buddy: ${esc(t.said.slice(0, 160))}${t.said.length > 160 ? "…" : ""}</span></span><span></span></li>`).join("");
+      const recent = (d.recent || []).map((t) => `<li><span class="when">${esc(cap(t.when))}</span><span><b>${esc(c.name)}:</b> ${esc(t.heard)}<br><span class="sub">Vidya: ${esc(t.said.slice(0, 160))}${t.said.length > 160 ? "…" : ""}</span></span><span></span></li>`).join("");
       const vis = { full: "Full history", summary: "Summary", private: "Private (adult)" }[d.visibility];
       return `<div class="card enter">
         <div class="row" style="align-items:baseline"><div class="grow"><p class="sub">Parent view</p><h1 style="margin:.2rem 0 .3rem">${esc(d.title)}</h1></div><span class="chip ${d.visibility === "full" ? "solid" : d.visibility === "summary" ? "learning" : "new"}">${esc(vis)}</span></div>
@@ -771,7 +771,7 @@
     },
 
     parent_history(d) {
-      const rows = d.turns.map((t) => `<li class="${t.flagged ? "flag" : ""}"><span class="when">${esc(cap(t.when))}</span><span><b>${esc(d.child.name)}:</b> ${esc(t.heard)}<br><span class="sub">Study Buddy: ${esc(t.said.slice(0, 220))}${t.said.length > 220 ? "…" : ""}</span></span><span>${t.flagged ? `<span class="chip shaky">Flagged</span>` : ""}</span></li>`).join("");
+      const rows = d.turns.map((t) => `<li class="${t.flagged ? "flag" : ""}"><span class="when">${esc(cap(t.when))}</span><span><b>${esc(d.child.name)}:</b> ${esc(t.heard)}<br><span class="sub">Vidya: ${esc(t.said.slice(0, 220))}${t.said.length > 220 ? "…" : ""}</span></span><span>${t.flagged ? `<span class="chip shaky">Flagged</span>` : ""}</span></li>`).join("");
       return `<div class="card enter"><p class="sub">Parent view, last ${d.days} days</p><h1 style="margin:.2rem 0 .8rem">${esc(d.title)}</h1>
         ${rows ? `<ul class="days">${rows}</ul>` : `<p class="say">No conversations yet.</p>`}
         <div class="actions">${btn("Delete this history", `Delete ${d.child.name}'s conversation history`)}</div></div>`;

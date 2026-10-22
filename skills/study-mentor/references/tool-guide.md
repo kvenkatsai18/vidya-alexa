@@ -1,4 +1,4 @@
-# Study Buddy tool guide
+# Vidya tool guide
 
 Every tool returns `structuredContent` with a `kind` (the card it renders) and a voice-ready `speech` string. Tools marked 🖼 render the MCP App card `ui://study-buddy/card.html`.
 

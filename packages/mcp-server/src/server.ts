@@ -282,7 +282,7 @@ export function createStudyBuddyServer(
     {
       title: "Parent: set up my child",
       description:
-        "A parent (or carer) tells Study Buddy about their child: name, age, class, interests, subjects, an upcoming exam, and notes ('gets shy with new things', 'struggles with fractions'). The child isn't asked these again; the first time they talk, they're greeted warmly with what the parent shared and asked something fun to start a real conversation.",
+        "A parent (or carer) tells Vidya about their child: name, age, class, interests, subjects, an upcoming exam, and notes ('gets shy with new things', 'struggles with fractions'). The child isn't asked these again; the first time they talk, they're greeted warmly with what the parent shared and asked something fun to start a real conversation.",
       inputSchema: {
         parent_name: z.string(),
         relation: z.string().describe("Mom, Dad, Grandma, guardian..."),
@@ -291,7 +291,7 @@ export function createStudyBuddyServer(
         level: z.string().optional(),
         interests: z.array(z.string()).optional(),
         subjects: z.array(z.string()).optional(),
-        notes: z.array(z.string()).optional().describe("Things the parent wants Study Buddy to keep in mind"),
+        notes: z.array(z.string()).optional().describe("Things the parent wants Vidya to keep in mind"),
         exam_title: z.string().optional(),
         exam_subject: z.string().optional(),
         exam_when: z.string().optional().describe("In the parent's words: 'Friday', 'in 5 days', 'Oct 30'"),
@@ -373,7 +373,7 @@ export function createStudyBuddyServer(
     "parent_history",
     {
       title: "Parent: conversation history",
-      description: "A parent reviews their child's conversations with Study Buddy. Available when the child's visibility is full (the default under 13; teens default to summary).",
+      description: "A parent reviews their child's conversations with Vidya. Available when the child's visibility is full (the default under 13; teens default to summary).",
       inputSchema: { child: z.string(), days: z.number().int().min(1).max(90).optional() },
       readOnly: true,
     },

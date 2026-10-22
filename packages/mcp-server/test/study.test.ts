@@ -209,7 +209,7 @@ describe("MCP features", () => {
     // deck, explanation, fresh questions (the set had only one question), grading
     assert.equal(sampled.length, 4);
     assert.match(sampled[2].messages[0].content.text, /Write \d NEW quiz questions about "Photosynthesis"/);
-    assert.match(sampled[0].systemPrompt, /Study Buddy/);
+    assert.match(sampled[0].systemPrompt, /Vidya/);
     assert.match(sampled[1].messages[0].content.text, /Maya/, "the learner context travels with the request");
   });
 

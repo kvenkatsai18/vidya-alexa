@@ -197,7 +197,7 @@ export class VoiceStudio {
 
   async completeEnrollment(token: string, wav: Buffer, transcript: string, attested: boolean): Promise<ParentVoice> {
     const e = this.enrollment(token);
-    if (!e) throw new BuddyError("This recording link has expired. Ask Study Buddy to set up your voice again.");
+    if (!e) throw new BuddyError("This recording link has expired. Ask Vidya to set up your voice again.");
     const seconds = wavSeconds(wav);
     if (seconds < 20) throw new BuddyError(`That recording is only ${Math.round(seconds)} seconds. Please record at least 20 seconds, reading the passage.`);
     const spoken = consentMatches(e.parentName, transcript);

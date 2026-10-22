@@ -297,7 +297,7 @@ export class SchoolSync {
   /** Finish connecting: store the (read-only) access and run a first sync. */
   async completeConnect(token: string, code: string | undefined, redirectUri: string, llm: Llm | null): Promise<Result> {
     const e = this.enrollment(token);
-    if (!e) throw new BuddyError("This connect link has expired. Ask Study Buddy to connect school again.");
+    if (!e) throw new BuddyError("This connect link has expired. Ask Vidya to connect school again.");
     const got = this.provider.live ? await this.provider.exchange(code ?? "", redirectUri) : await this.provider.exchange("", redirectUri);
     const l = this.mentor.store.get().learners.find((x) => x.id === e.learnerId)!;
     // Check the age Google reports, not the one they said. A parent connecting is fine at any age.
