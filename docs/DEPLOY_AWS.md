@@ -37,7 +37,7 @@ Scaling out later means moving sessions and games to a shared store (DynamoDB or
 
 ## Option A: Lightsail (simplest)
 
-1. **Create the instance.** In the Lightsail console, choose Linux/Unix, OS only, Ubuntu 24.04, and the 1 GB plan.
+1. **Create the instance.** In the Lightsail console, choose Linux/Unix, OS only, Ubuntu 24.04, and the 2 GB plan ($12/month; the first build needs the memory). The live demo uses this plan, with a launch script that adds 2 GB of swap and installs Docker.
 2. **Networking.** Create a static IP and attach it. Under IPv4 firewall, keep 22 open and add **80** and **443**.
 3. **DNS.** Point two hostnames at the static IP. With no domain, use sslip.io. For IP `3.91.20.7`, the names are `mcp.3-91-20-7.sslip.io` and `device.3-91-20-7.sslip.io`. No DNS setup is needed.
 4. **AWS access for Bedrock and Polly.** Lightsail instances can't use IAM roles, so create an IAM user just for this.
@@ -94,6 +94,6 @@ claude mcp add --transport http study-buddy https://mcp.<your-domain>/mcp \
 
 - **Accounts.** The shared `BUDDY_ACCESS_TOKEN` and the `x-study-buddy-home` header are for the demo. In production, each family signs in (MCP authorization, or Alexa account linking), and the home comes from that account.
 - **Backups.** Learner data is under the `buddy-data` volume (`/data` in the container). Lightsail snapshots, or EBS snapshots on EC2, back it up.
-- **Updates.** `rsync` again, then `docker compose ... up -d --build`.
+- **Updates.** Commit, then run `deploy/update.sh` from your machine: it ships the last commit, keeps `deploy/.env` and the data volume, and rebuilds. `deploy/set-login.sh` changes the device login.
 - **Demo controls.** The clock and reset under `/admin` are behind the access token. Set `BUDDY_ADMIN=off` to remove them.
 - **School sync in live mode.** Add `https://mcp.<your-domain>/school/oauth/callback` as an authorized redirect URI in the Google Cloud OAuth client, and set `BUDDY_PUBLIC_URL`.

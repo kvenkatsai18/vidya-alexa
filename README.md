@@ -1,106 +1,97 @@
 # Vidya
 
-**A personal study mentor on Alexa+ that remembers how you learn.** Tell it who you are, from a 7-year-old to a second-year engineering student, and it teaches at your level, using examples from your world. Share your notes, and it explains them through what you love ("meiosis is like picking two new cricket teams for a charity match"). It quizzes you out loud and remembers exactly what you got wrong. The next day it says, *"Last time you mixed up interphase with prophase, so let's start there."* Family mode turns a value a parent wants to teach into a bedtime story.
+**The study mentor on Alexa that remembers you.** Tell Vidya who you are, from a 7-year-old to a second-year engineering student, and it teaches at your level with examples from your world. Share your notes and it explains them through what you love ("meiosis is like picking two new cricket teams"). It quizzes you out loud, grades what you actually said, and remembers exactly what you got wrong. Overnight it works ahead on its own, and in the morning it says, *"While you were away, I made a study set for your biology test. Last time you mixed up interphase with prophase, so let's start there."*
 
-Built for the **Alexa+ track** of *Build, Ship, Shape: Amazon Developer Hackathon 2026*. *Vidya* is a working name; it's set in one place (`BUDDY_BRAND`).
+*Vidya* is Sanskrit for "knowledge". Built for the **Alexa+ track** of *Build, Ship, Shape: Amazon Developer Hackathon 2026*.
 
 | | |
 |---|---|
-| **MCP server** | Self-hosted, MCP spec **2025-11-25** over **Streamable HTTP**: 35 tools with structured output, an **MCP Apps** card UI, **sampling** (generation on the client's model), **elicitation** (setup form, confirmations, secure sign-in pages), **resource subscriptions** (live games across homes), resources and prompts. Ready to host on AWS ([guide](docs/DEPLOY_AWS.md)) |
+| **MCP server** | Self-hosted, MCP spec **2025-11-25** over **Streamable HTTP**: 41 tools with structured output and level-aware speech, an **MCP Apps** card UI (39 tools render cards), **sampling**, **elicitation** (forms, confirmations, secure sign-in pages), **resource subscriptions** (live games across homes), resource templates and prompts. Hosted on AWS ([guide](docs/DEPLOY_AWS.md)). |
 | **Agent Skills** | [`study-mentor`](skills/study-mentor/SKILL.md) and [`bedtime-storyteller`](skills/bedtime-storyteller/SKILL.md), in the open Agent Skills format and loaded at runtime |
-| **Alexa+ simulator** | A smart-display web app that is a real MCP client, with voice in and out, notes sharing (PDF, text, Markdown), MCP Apps rendering, and a live JSON-RPC traffic panel |
-| **Brain** | **Amazon Nova** (Nova 2 Lite by default) on **Amazon Bedrock** through the Converse API, so any Bedrock model works by changing `BUDDY_MODEL`. Voice by **Amazon Polly**. Claude via the Anthropic API is an alternative, and an offline mode with prepared content needs no key. |
+| **Alexa+ simulator** | An Echo Show-style web app that is a real MCP client: wake word, barge-in, follow-up listening, notes sharing (PDF, text, Markdown), MCP Apps rendering, and a live JSON-RPC traffic panel |
+| **AI on AWS** | **Amazon Nova 2 Lite** on **Amazon Bedrock** (Converse API, so any Bedrock model works by changing `BUDDY_MODEL`), **Nova Web Grounding** for research with sources, and **Amazon Polly** generative voices. Claude via the Anthropic API is an optional alternative. |
 
 ---
 
 ## Why
 
-Students don't lack information. They lack a patient mentor who knows them. The research is clear: self-testing (*retrieval practice*) and *spaced repetition* beat rereading. They're hard to do alone, though, and the phone that holds your flashcards also holds the reels. A voice mentor in the room changes that:
+Students don't lack information. They lack a patient mentor who knows them. Self-testing (*retrieval practice*) and *spaced repetition* beat rereading, but they're hard to do alone, and the phone that holds your flashcards also holds the reels. A voice mentor in the room changes that:
 
-- **Personal at every level.** Vocabulary, depth, examples and session length all come from the learner's class or age. Nothing is hard-coded per user.
-- **Memory that matters.** It remembers interests, which explanation styles clicked, specific mistakes, exam dates and the review schedule, across sessions.
-- **Active, not passive.** Spoken quizzes graded by meaning, flashcards, and **teach-back**, where you explain the concept and it checks your explanation against your own notes.
-- **Less screen time.** Phone-down focus sessions end with a quick quiz.
-- **Study Together.** A quiz battle with siblings in the same room, or with a friend in another home through a spoken invite code ("join game Tiger 4 2"). Every player gets questions at their own level.
-- **Accessible.** Voice-first learning helps students with dyslexia or low vision. The cards use Atkinson Hyperlegible, a typeface designed for low-vision readers.
+- **Personal at every level.** Vocabulary, depth, examples and session length come from the learner's class or age.
+- **Memory that matters.** Interests, explanation styles that clicked, specific mistakes, exam dates and the review schedule, across sessions.
+- **It learns from you.** "Call me Pri", "that's too long", "these are too easy": Vidya saves the lesson from the learner's own words and follows it in the same reply. It never invents a correction nobody asked for.
+- **Agentic, not just reactive.** A daily routine syncs school, builds study sets for upcoming tests, researches topics beyond the notes, and plans the day, then briefs the learner in the morning.
+- **Beyond the notes.** "Tell me more" searches the web (Nova Web Grounding) and explains what it found at the learner's level, with sources.
+- **Active, not passive.** Spoken quizzes graded strictly on what was said, fresh questions on request, flashcards, and **teach-back**.
+- **Talks like a person.** Answer a quiz question before it finishes reading the options. Interrupt ("wait, not entropy, I meant enthalpy") and it carries on in context. "What?" repeats the question.
+- **Study Together.** A quiz battle with siblings, or with a friend in another home through a spoken invite code.
 - **Family mode.** "Tell Leo a story about why stealing is wrong, he loves dinosaurs" becomes a gentle story with a question to ask afterwards.
 
 ## Built for kids: parents in control, safety goes to a human
 
-An AI shouldn't be a child's secret-keeper, or the one they lean on when something is seriously wrong. Vidya is designed around that.
+An AI shouldn't be a child's secret-keeper. Vidya is designed around that.
 
 | Age | What parents can see | Serious concerns |
 |---|---|---|
-| **Under 13** | **Everything:** every conversation, what the child shared, and progress (designed with COPPA principles in mind: parents of under-13s can review their child's data) | Alert to the parent immediately |
-| **13 to 17** | Progress plus a **summary** of topics and mood by default; the parent can switch to **full history** with one setting | **Always** sent to the parent, whatever the setting |
+| **Under 13** | **Everything:** conversations, what the child shared, progress (designed with COPPA principles in mind) | Alert to the parent immediately |
+| **13 to 17** | Progress plus a **summary** of topics and mood; the parent can switch to full history | **Always** sent to the parent |
 | **18+** | Private | Encouraged to reach out to someone they trust, with crisis lines when needed |
 
-- **No secrets.** Children are told plainly what their parent can see ("Your mom can see what we talk about, so she can help too"). It never says "this stays between us". If a parent changes the setting, the child is told next time.
-- **Safety always reaches a person.** Self-harm, abuse, being asked to keep secrets, a stranger or someone online, running away, bullying and deep sadness are all detected:
-  - by a deterministic check on the server, so it works with no AI connected
-  - by the AI, through `flag_concern`
-  - on every turn the device logs (`record_turn`)
-
-  The child gets a warm, honest reply ("it's not your fault; I'm letting your mom know"). Young children are pointed to a grown-up nearby; older ones also get 988 (call or text). The parent gets an alert, and the concern sits **at the top** of their view, most serious first, with the child's own words.
-- **Checked before acting.** A worrying "quiz answer" is never graded. The server checks the child's words before any tool acts on them.
-- **Parents stay in control.** They can see a child's history, switch between full and summary, add notes, or delete the history at any time.
-- **Home and school, connected (read-only).** Connect Google Classroom through a secure page (URL elicitation; a parent connects under 13). Teachers' tests show up in the study plan, teacher notes become personalized study sets, and "what homework do I have?" just works. It never submits or edits anything, and disconnecting deletes the synced data.
-- **Online games are invite-only.** Study Together across homes uses a short code, with no lobby of strangers. Other homes only see first names, scores and right or wrong, never what anyone said. Under 13, a parent switches it on first ("allow online games for Leo"). Each player's own home records the game, so parents see it in the history.
-- **Parent-led onboarding.** A parent can set up their child, so the child is never interrogated. The first time the child talks, they're greeted with what the parent shared and asked something fun ("What's your favourite dinosaur?") to start a real relationship.
+- **No secrets.** Children are told plainly what their parent can see. It never says "this stays between us".
+- **Safety always reaches a person.** Self-harm, abuse, secrets, strangers, running away, bullying and deep sadness are caught by a deterministic check on every turn *before* the AI runs, so safety never depends on the model. The child gets a warm, honest reply; a linked parent gets an alert at the top of their view.
+- **Age isn't taken on trust.** When a learner connects Google Classroom, Vidya checks the age Google reports (age range, birthday, and the grade in their class names). A 13-year-old who says "I'm 18" can't connect school alone: a parent has to, and nothing is kept.
+- **Home and school, read-only.** Google Classroom sync: tests become exams in the plan, teacher notes become study sets, "what homework do I have?" just works. It never submits or edits anything, and disconnecting deletes the synced data.
+- **Safe deletes.** "Delete my study plan" removes study sets only, after a clear confirmation. Deleting a whole profile needs those exact words.
+- **Online games are invite-only.** Short codes, no lobby of strangers, first names and scores only. Under 13, a parent switches it on first.
 
 ### What the judges asked for, and where it lives
 
 | "Creative" signal from the rules | In Vidya |
 |---|---|
-| Keeps context across sessions | Learner memory, misconceptions, exam-aware spaced review ([`mentor.ts`](packages/mcp-server/src/domain/mentor.ts), [`srs.ts`](packages/mcp-server/src/domain/srs.ts)) |
-| Agentic workflow across services | Notes become a study set, then explanations, quizzes and grading, then the mastery map and an exam plan, then the next day's review |
-| Media (cards, carousels) and MCP Apps | One `ui://study-buddy/card.html` view (`text/html;profile=mcp-app`). Cards include index-card flashcards with flip, multiple-choice answer tiles, a mastery map, the exam countdown, a teach-back checklist, a self-running focus timer, and a storybook. |
-| Agent Skills | Two skills: teaching playbook and tone, plus guardrails for academic honesty, wellbeing and child safety |
-| Responsible AI for families | Age-based parent visibility, no secrets, safety concerns always routed to a parent ([`safety.ts`](packages/mcp-server/src/domain/safety.ts)) |
-| Deep MCP use | **Sampling** lets the server generate on the client's own model, with no server key. **Elicitation** handles onboarding forms and delete confirmations. Plus resource templates, prompts, tool annotations and icons. |
+| Context across sessions | Learner memory, lessons learned, misconceptions, exam-aware spaced review ([`mentor.ts`](packages/mcp-server/src/domain/mentor.ts), [`srs.ts`](packages/mcp-server/src/domain/srs.ts)) |
+| Agentic workflow across services | The daily routine: Google Classroom sync → study sets for upcoming tests → web research (Nova Web Grounding) → a plan for the day → a morning briefing |
+| Media (cards, carousels) and MCP Apps | One `ui://study-buddy/card.html` view (`text/html;profile=mcp-app`): swipeable topic, research and briefing carousels, flip flashcards, answer tiles, a mastery map, an exam countdown, a focus timer, a storybook |
+| Agent Skills | Two skills: the teaching playbook and tone, plus guardrails for academic honesty, wellbeing and child safety |
+| Deep MCP use | **Sampling** (generation on the client's model), **elicitation** (forms, confirmations, URL sign-in pages for Google Classroom), **resource subscriptions** (live cross-home games), resource templates, prompts, tool annotations, icons |
 
 ---
 
-## Quick start
+## Try it
 
-Requires Node 20+.
+**Hosted (no setup):** a live instance runs on Amazon Lightsail. The link and login are in the Devpost testing instructions.
+
+**Locally** (Node 20+). Vidya uses live AI only, with no pre-made content, so it needs AWS credentials with access to Amazon Nova on Bedrock (region `us-east-1`) and Amazon Polly:
 
 ```bash
 npm install
-npm run dev          # MCP server on :8787 and simulator on :5173
-open http://localhost:5173
+aws configure                 # or AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
+BUDDY_TTS=polly npm run dev   # MCP server on :8787, device on :5173
+open http://localhost:5173    # Chrome or Edge, allow the microphone
 ```
 
-That runs in **offline mode**, with prepared content for the bundled biology notes ([`content/cell-division.md`](packages/mcp-server/content/cell-division.md)) and heuristic grading. To use a real model, which handles any notes and any topic, grades by meaning, and writes original stories:
+Settings can also live in a `.env` file (see [`.env.example`](.env.example)). Optional:
 
 ```bash
-npm run dev                                                  # with AWS credentials: Amazon Nova on Bedrock (default)
-BUDDY_GEN_MODEL=us.amazon.nova-pro-v1:0 npm run dev          # optional: a larger model for study sets and grading
-BUDDY_TTS=polly npm run dev                                  # + natural device voice (Amazon Polly)
-ANTHROPIC_API_KEY=sk-ant-... npm run dev                     # no AWS? Claude via the Anthropic API instead
-GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=... npm run dev    # real Google Classroom sync (otherwise a sample class)
+GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=...   # live Google Classroom sync (read-only)
+BUDDY_GEN_MODEL=us.amazon.nova-pro-v1:0         # a larger model for study sets and grading
+ANTHROPIC_API_KEY=...                           # Claude via the Anthropic API instead of Bedrock
 ```
 
-With a model configured, the simulator also answers the server's **MCP sampling** requests, so the server itself needs no key.
+Without any AI credentials the device says that an AI connection is required. Nothing is faked.
 
-### Try this story
+### Things to say
 
-1. "Help me study."
-2. "Hi, I'm Priya. I'm in 10th grade and I love cricket and cooking. My biology test is in 5 days."
-3. Tap **Use the sample biology notes**, or **Share notes** to pick a PDF or text file of your own.
-4. "Explain meiosis." Then "Explain it differently."
-5. "Quiz me." Answer one wrong on purpose, then "hint", then "stop".
-6. **Skip ahead a day**, then "Good morning." It remembers the mistake.
-7. "Let me teach meiosis back to you", then explain it in your own words.
-8. "What's my study plan?", "Help me focus for 25 minutes", "What do you know about me?"
-9. **Study Together across homes:** open a second tab at `http://localhost:5173/?home=rao`. Each `home` is a separate household. There, say "I'm Asha, Leo's mom. He's 6 and loves dinosaurs", then "Allow online games for Leo", then "Hi, I'm Leo". In Priya's tab, say "Let's play an online quiz battle with my friend". In Leo's tab, say "join game" plus the code on Priya's screen. Then, in Priya's tab, say "start the game". Each device announces whose turn it is.
-10. "Tell Leo a bedtime story about why stealing is wrong. He's 6 and loves dinosaurs."
+1. "Alexa, I'm Priya, 10th grade, I love cricket. I have a bio test on Friday."
+2. **Share notes** (a PDF or text file), then "What's the first thing I should know?" Then "huh?" and "simpler please".
+3. "Quiz me." Answer one wrong, and try answering before it finishes reading the options. Then "these are too easy".
+4. "Call me Pri from now on."
+5. **Pretend it's tomorrow** (side panel), then "Good morning". It tells you what it did overnight and starts with yesterday's mistake.
+6. "Tell me more about this", for research beyond your notes, with sources.
+7. "Connect my school", then "What homework do I have?"
+8. **Another home:** open a second tab at `http://localhost:5173/?home=rao`. There, "I'm Asha, Leo's mom. He's 6 and loves dinosaurs", "Allow online games for Leo", "Hi, I'm Leo". In Priya's tab, "Let's play an online quiz battle with my friend"; in Leo's, "join game" plus the code.
+9. As Leo, "Nobody at school wants to play with me". Then, "I'm Asha, Leo's mom. How is Leo doing?"
 
-**Controls:**
-- Hold the mic button or the **space bar** to talk (Chrome or Edge).
-- Card buttons reply on your behalf.
-- Press **D** to hide the developer panel.
-- **Reset everything** clears all memory.
+**Controls:** say "Alexa" (wake word), or hold the mic button or **space bar**. "Stop" or "wait" interrupts. Card buttons reply for you. **D** hides the developer panel. **Reset everything** clears all memory.
 
 ---
 
@@ -111,46 +102,44 @@ npm run start:mcp
 npx @modelcontextprotocol/inspector     # Streamable HTTP, URL: http://localhost:8787/mcp
 
 # Claude Code, plus the skills
-claude mcp add --transport http study-buddy http://localhost:8787/mcp
+claude mcp add --transport http vidya http://localhost:8787/mcp
 cp -r skills/study-mentor skills/bedtime-storyteller ~/.claude/skills/
 
-# A hosted server (docs/DEPLOY_AWS.md)
-claude mcp add --transport http study-buddy https://mcp.<your-domain>/mcp --header "Authorization: Bearer <token>"
+# A hosted server
+claude mcp add --transport http vidya https://mcp.<your-host>/mcp --header "Authorization: Bearer <token>"
 ```
 
 ## Architecture
 
 ```
 ┌──────────────────────────── apps/simulator (Alexa+ experience) ────────────────────────────┐
-│  Browser: smart display · Web Speech in/out · notes sharing · MCP Apps host bridge · trace  │
-│  Node:  Session ─ VoiceAgent ─┬─ BedrockAgent  (Amazon Nova, Converse API; skills as system)│
-│                               ├─ ClaudeAgent   (alternative: Anthropic API)                │
-│                               │      also answers MCP sampling for the server               │
-│                               └─ OfflineAgent  (scripted router, no key)                    │
+│  Browser: Echo Show-style display · wake word, barge-in, echo guard · MCP Apps host · trace │
+│  Node:  Session ─ safety check ─ VoiceAgent ─┬─ BedrockAgent (Amazon Nova, Converse API)   │
+│                                              └─ ClaudeAgent  (alternative: Anthropic API)  │
+│         Both answer the server's MCP sampling requests. Amazon Polly for speech.           │
 │         McpConnection: MCP client · Streamable HTTP · elicitation + sampling handlers       │
 └─────────────────────────────────────────┬──────────────────────────────────────────────────┘
                                           │  MCP 2025-11-25 · Streamable HTTP · sessions
 ┌─────────────────────────────────────────▼──────────── packages/mcp-server ─────────────────┐
-│  35 tools (structuredContent + level-aware "speech") · MCP Apps card · resources · prompts  │
+│  41 tools (structuredContent + level-aware "speech") · MCP Apps card · resources · prompts  │
+│  Mentor: profiles, memory, lessons · decks · quizzes · grading · teach-back · plans         │
+│  Daily routine: school sync → study sets → research → plan → morning briefing               │
+│  Research: Nova Web Grounding with citations · School: Google Classroom + age check         │
 │  Homes: one memory per household · GameHub: invite-code games, live via resource updates   │
-│  Mentor: profiles & memory · levels → voice guide · decks · quizzes · teach-back · plans    │
-│  Generation: sampling → server's own model (Nova on Bedrock) → offline (prepared content)   │
-│  Memory engine: exam-aware spaced repetition · misconceptions · styles that worked          │
-│  Store: durable household memory (.data/, one folder per home)                              │
+│  Store: durable household memory (one JSON file per home)                                   │
 └────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 Key files:
 
 - [`server.ts`](packages/mcp-server/src/server.ts): the MCP surface
-- [`mentor.ts`](packages/mcp-server/src/domain/mentor.ts): learning logic
-- [`games.ts`](packages/mcp-server/src/domain/games.ts) and [`homes.ts`](packages/mcp-server/src/homes.ts): Study Together across homes
-- [`levels.ts`](packages/mcp-server/src/domain/levels.ts): personalization by level
-- [`generate.ts`](packages/mcp-server/src/domain/generate.ts): prompts and offline fallbacks
-- [`llm.ts`](packages/mcp-server/src/domain/llm.ts): sampling and direct model access
+- [`mentor.ts`](packages/mcp-server/src/domain/mentor.ts): learning logic, memory, lessons, the daily routine
+- [`generate.ts`](packages/mcp-server/src/domain/generate.ts) and [`bedrock.ts`](packages/mcp-server/src/domain/bedrock.ts): prompts, Nova, web grounding
+- [`school.ts`](packages/mcp-server/src/domain/school.ts) and [`age.ts`](packages/mcp-server/src/domain/age.ts): Google Classroom and the age check
+- [`safety.ts`](packages/mcp-server/src/domain/safety.ts): child safety
 - [`card.html`](packages/mcp-server/src/ui/card.html): the MCP App view
-- [`mcp-client.ts`](apps/simulator/src/mcp-client.ts): the simulator's MCP client
-- [`app.js`](apps/simulator/public/app.js): the device UI and host bridge
+- [`session.ts`](apps/simulator/src/session.ts) and [`agent-bedrock.ts`](apps/simulator/src/agent-bedrock.ts): the device's brain
+- [`app.js`](apps/simulator/public/app.js): the device UI, the ear (wake word, barge-in, echo guard) and the host bridge
 
 ## Tests
 
@@ -158,37 +147,26 @@ Key files:
 npm test
 ```
 
-There are 42 tests:
+77 tests (64 server, 13 simulator), with scripted stand-ins for the model so no AWS calls are made. Highlights:
 
-- **Level mapping:** kindergarten through university and adult learners.
-- **The memory loop:** a mistake today comes back first tomorrow, and getting it right resolves it.
-- **Style learning:** it notices which explanation style worked.
-- **Memory and privacy:** remember, forget, and delete-everything with confirmation.
-- **Parent mode:** parent-led setup, then the child is greeted and asked a fun question.
-- **Age-based visibility:** full under 13; summary for teens, switchable to full, with the teen told.
-- **Child safety:** worrying words get a caring reply instead of grading, go to the parent, and show first, most serious first. Figures of speech ("I killed that quiz") aren't flagged, and adults aren't reported.
-- **Moods:** tired means a shorter session.
-- **School sync:** connect, tests become exams, notes become study sets, homework, under-13 parent rule, disconnect deletes data.
-- **Study Together:** level-matched questions per player, streak scoring, guests aren't saved.
-- **Study Together across homes:** spoken invite codes, parent permission under 13, turn order, live updates through resource subscriptions, other homes never see a player's words, each home logs its own result. Plus two simulated devices playing over real HTTP.
-- **Teach-back** grading.
-- **MCP sampling:** deck, explanation and grading, all generated on the client's model.
-- **Elicitation:** onboarding through the setup form.
-- **Bedtime stories.**
-- **MCP Apps** metadata, resources and prompts.
-- **Exam-aware scheduling.**
-- **A real Streamable HTTP handshake**, asserting protocol `2025-11-25`.
-- **A full spoken end-to-end story** through the simulator.
-- **Amazon Nova on Bedrock:** the Converse tool loop, sampling, guardrail refusals and recovery from failed turns, against a fake Bedrock client (no AWS calls in tests).
-- **Safety that doesn't depend on the model:** a worried child is protected even when the assistant never said who's talking, an age that doesn't fit the class is ignored, and no parent alert is claimed when none is linked.
+- **The memory loop:** a mistake today comes back first tomorrow; getting it right resolves it.
+- **Learning from corrections:** saved only from the learner's own words, applied in the same reply, never invented from "stop".
+- **Conversation:** "huh?" gets a new angle; "what?" repeats the question; answers are graded on the learner's words; exam dates from "Friday" or "next Tuesday"; topics matched by title, not by a passing mention.
+- **The daily routine:** study sets for upcoming tests, research beyond the notes, a plan, a briefing said once.
+- **Quizzes:** no repeats across quizzes, fresh questions written in parallel, strict grading.
+- **Safety and parents:** caring replies instead of grading, alerts to a linked parent, age-based visibility, safe deletes.
+- **School sync and the age check:** "I'm 18" with a grade-7 account needs a parent; teens and adults connect as usual.
+- **Study Together across homes:** invite codes, turn order, live updates through resource subscriptions, two simulated devices over real HTTP.
+- **MCP:** sampling, elicitation, MCP Apps metadata, resources, prompts, and a real Streamable HTTP handshake on `2025-11-25`.
+- **Amazon Nova on Bedrock:** the Converse tool loop, web-grounding citations, guardrail refusals and recovery from failed turns, against a fake Bedrock client.
 
 ## Notes
 
-- Learner data stays in a JSON file per household. "Forget that" and "delete everything" are built in.
-- Hosting: one small Lightsail or EC2 server with Docker and automatic HTTPS. See [docs/DEPLOY_AWS.md](docs/DEPLOY_AWS.md).
-- The real Alexa+ developer tooling is preview-only for select partners. This repo follows the hackathon's sanctioned path: a self-hosted MCP server plus Agent Skills, demonstrated through a simulated Alexa+ experience that is a real MCP client.
-- `/admin/*` endpoints only drive the demo clock. Disable them with `BUDDY_ADMIN=off`.
-- The sample notes are original. People named in the demo are fictional.
+- Learner data stays in one JSON file per household. "Forget that", "delete my study set" and "delete everything" (with confirmation) are built in.
+- Hosting: one Lightsail server with Docker and automatic HTTPS ([docs/DEPLOY_AWS.md](docs/DEPLOY_AWS.md)). `deploy/update.sh` ships a new version; `deploy/set-login.sh` changes the device login.
+- The real Alexa+ developer tooling is preview-only for select partners. This repo follows the hackathon's sanctioned path: a self-hosted MCP server plus Agent Skills, shown through a simulated Alexa+ device that is a real MCP client.
+- `/admin/*` endpoints only drive the demo clock and need the access token. Disable them with `BUDDY_ADMIN=off`.
+- Test notes are original. People named in examples are fictional.
 
 ## License
 
