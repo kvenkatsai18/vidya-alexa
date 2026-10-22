@@ -228,8 +228,10 @@ app.post("/school/connect/mock", async (req, res) => {
   }
 });
 
-app.get("/healthz", (_req, res) => {
-  res.json({ ok: true, name: "study-buddy", version: SERVER_VERSION, protocol: LATEST_PROTOCOL_VERSION, sessions: sessions.size, homes: homes.all().length, games: homes.games.count(), now: main.store.now().toISOString() });
+app.get("/healthz", (req, res) => {
+  // ?home= gives that home's clock (the demo clock moves one home at a time).
+  const h = (req.query.home ? homes.find(String(req.query.home)) : undefined) ?? main;
+  res.json({ ok: true, name: "study-buddy", version: SERVER_VERSION, protocol: LATEST_PROTOCOL_VERSION, sessions: sessions.size, homes: homes.all().length, games: homes.games.count(), now: h.store.now().toISOString() });
 });
 
 if (ADMIN) {
@@ -238,20 +240,24 @@ if (ADMIN) {
     const h = homes.get(String(req.query.home ?? ""));
     res.json({ home: h.id, now: h.store.now().toISOString(), state: h.store.get() });
   });
+  // The demo clock and reset act on one home: the one asking (other families and judges are untouched).
+  const homesFor = (raw: unknown) => (raw === undefined || raw === null || raw === "" ? homes.all() : [homes.get(String(raw))]);
   app.post("/admin/advance", async (req, res) => {
     const days = Number(req.body?.days ?? 1);
     if (!Number.isFinite(days) || Math.abs(days) > 60) return void res.status(400).json({ error: "days must be between -60 and 60" });
-    for (const h of homes.all()) h.store.advanceClock(days);
-    log(`clock advanced ${days}d -> ${main.store.now().toISOString()}`);
+    const targets = homesFor(req.body?.home);
+    for (const h of targets) h.store.advanceClock(days);
+    log(`clock advanced ${days}d for ${targets.map((h) => h.id).join(", ")}`);
     // A new day on the demo clock: the overnight routine runs now, like it would at 5am.
-    const ran = days > 0 ? await runDailyRoutines() : 0;
-    res.json({ now: main.store.now().toISOString(), routines: ran });
+    const ran = days > 0 ? await runDailyRoutines(targets) : 0;
+    res.json({ now: targets[0].store.now().toISOString(), routines: ran });
   });
-  app.post("/admin/reset", (_req, res) => {
-    for (const h of homes.all()) h.store.reset();
-    homes.games.clear();
-    log("state reset to seed");
-    res.json({ ok: true, now: main.store.now().toISOString() });
+  app.post("/admin/reset", (req, res) => {
+    const targets = homesFor(req.body?.home);
+    for (const h of targets) h.store.reset();
+    if (targets.length === homes.all().length) homes.games.clear();
+    log(`state reset for ${targets.map((h) => h.id).join(", ")}`);
+    res.json({ ok: true, now: targets[0].store.now().toISOString() });
   });
 }
 
@@ -264,16 +270,17 @@ let routineRun: Promise<number> = Promise.resolve(0);
  * For every home: once a day per learner, from 5am home time. Returns how many briefings were prepared.
  * Runs one at a time; a request while one is running waits for it, then runs (for a new day, say).
  */
-function runDailyRoutines(): Promise<number> {
-  routineRun = routineRun.then(runDailyRoutinesNow, runDailyRoutinesNow);
+function runDailyRoutines(only?: ReturnType<typeof homes.all>): Promise<number> {
+  const run = () => runDailyRoutinesNow(only ?? homes.all());
+  routineRun = routineRun.then(run, run);
   return routineRun;
 }
 
-async function runDailyRoutinesNow(): Promise<number> {
+async function runDailyRoutinesNow(list: ReturnType<typeof homes.all>): Promise<number> {
   if (!routineModel) return 0;
   let n = 0;
   try {
-    for (const h of homes.all()) {
+    for (const h of list) {
       const hour = Number(h.store.now().toLocaleString("en-US", { hour: "numeric", hour12: false, timeZone: h.store.get().household.timeZone }));
       if (hour < 5 && hour !== 0) continue;
       const done = await h.mentor.dailyRoutine(routineModel, routineModel);

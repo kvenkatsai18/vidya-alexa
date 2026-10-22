@@ -32,6 +32,9 @@ interface PendingElicit {
   resolve: (r: ElicitResult) => void;
 }
 
+/** Words that say when something is: "Friday", "tomorrow", "in 5 days", "next week", "Oct 30". */
+const EXAM_WHEN = /\b(today|tomorrow|(mon|tues|wednes|thurs|fri|satur|sun)day|next week|in \d+ days?|(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]* \d{1,2}|\d{1,2}(st|nd|rd|th)? (of )?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec))\b/i;
+
 /** "Thanks, that's enough for today", "ok good night", "bye", "I'm done for now". */
 const GOODBYE = /\b(bye|good ?night|that'?s (enough|it|all) for (today|now|tonight)|i'?m done( for (today|now|tonight))?|see you( tomorrow| later)?|gotta go|talk (to you )?later)\b/i;
 
@@ -160,6 +163,8 @@ export class Session {
             return { isError: true, content: [{ type: "text", text: "Not deleted: the learner didn't ask to delete their whole profile. Ask them exactly what to delete (a study set, a memory, or a lesson)." }] };
           }
         }
+        // "My test is on Friday": the date comes from the learner's own words, not the model's arithmetic.
+        if ((name === "set_up_learner" || name === "parent_setup") && args.exam_title && !args.exam_when && EXAM_WHEN.test(this.heardNow)) args = { ...args, exam_when: this.heardNow };
         // "What?" in a quiz means "say it again", not "give me a hint".
         if (name === "quiz_action" && args.action === "hint" && /^\W*(what|huh|pardon( me)?|sorry|come again|say (that|it) again|repeat( that| it)?|what was (that|the question))\W*$/i.test(this.heardNow.replace(/^\s*(hmm+|um+|uh+|alexa)[,.]?\s*/i, ""))) args = { ...args, action: "repeat" };
         const started = Date.now();

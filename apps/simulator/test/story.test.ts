@@ -210,3 +210,42 @@ it("'delete my study plan' deletes the study sets after a clear confirmation, ne
   assert.equal(((await session.callToolFromView("get_profile", {})).structuredContent as { learner?: { name: string } }).learner?.name, "Venkat", "a vague 'forget it' deletes nothing");
   await session.close();
 });
+
+it("'my test is on Friday' is saved for Friday even when the AI sends its own (wrong) day count", async () => {
+  const miscounting = {
+    label: "miscounting",
+    reset() {},
+    async turn(ctx: any) {
+      // As Nova did live: no exam_when, and Wednesday + 3 days = Saturday.
+      const r = await ctx.callTool("set_up_learner", { name: "Priya", level: "Grade 10", exam_title: "Biology test", exam_in_days: 3 });
+      return r.structuredContent?.speech ?? "";
+    },
+  };
+  const session = await Session.create(miscounting as never, `${base}/mcp`, "friday-test");
+  await session.turn("Hi, I'm Priya. I'm in 10th grade and I have a biology test on Friday.", "voice");
+  const profile = (await session.callToolFromView("get_profile", {})).structuredContent as { exams?: Array<{ date: string }> };
+  const day = new Date(`${profile.exams![0].date}T12:00:00Z`).getUTCDay();
+  assert.equal(day, 5, `saved as ${profile.exams![0].date}`);
+  await session.close();
+});
+
+it("the demo clock and 'Reset everything' only touch the home that asked (other judges and families are safe)", async () => {
+  const agent = { label: "quiet", reset() {}, async turn() { return ""; } };
+  const a = await Session.create(agent as never, `${base}/mcp`, "judge-a");
+  const b = await Session.create(agent as never, `${base}/mcp`, "judge-b");
+  await a.callToolFromView("set_up_learner", { name: "Priya", level: "Grade 10" });
+  await b.callToolFromView("set_up_learner", { name: "Sam", level: "Grade 9" });
+  const now = async (home: string) => Date.parse(((await (await fetch(`${base}/healthz?home=${home}`)).json()) as { now: string }).now);
+  const bBefore = await now("judge-b");
+  const r = await fetch(`${base}/admin/advance`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ days: 1, home: "judge-a" }) });
+  assert.equal(r.status, 200);
+  assert.ok((await now("judge-a")) - Date.now() > 23 * 3600_000, "judge A is in tomorrow");
+  assert.ok(Math.abs((await now("judge-b")) - bBefore) < 60_000, "judge B's clock didn't move");
+  await fetch(`${base}/admin/reset`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ home: "judge-a" }) });
+  const sam = (await b.callToolFromView("get_profile", {})).structuredContent as { learner?: { name: string } };
+  assert.equal(sam.learner?.name, "Sam", "resetting judge A didn't erase judge B");
+  const priya = (await a.callToolFromView("get_profile", {})).structuredContent as { learner?: { name: string } } | undefined;
+  assert.notEqual(priya?.learner?.name, "Priya", "judge A was reset");
+  await a.close();
+  await b.close();
+});

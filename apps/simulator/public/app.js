@@ -52,7 +52,7 @@ async function boot() {
     $("fSkill").classList.add("okv");
   } catch {}
 
-  const home = new URLSearchParams(location.search).get("home") ?? "";
+  const home = homeForThisBrowser();
   const res = await fetch("/api/sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ home, tz: Intl.DateTimeFormat().resolvedOptions().timeZone }) });
   const data = await res.json();
   if (!res.ok && data.needsAi) {
@@ -75,6 +75,7 @@ async function boot() {
   $("fProto").textContent = data.protocolVersion;
   $("fSession").textContent = data.mcpSessionId ? `${data.mcpSessionId.slice(0, 8)}…` : "–";
   $("fSession").title = data.mcpSessionId ?? "";
+  state.home = data.home;
   $("fHome").textContent = data.home === "home" ? "home (default)" : data.home;
   $("fHome").title = "Open another tab with ?home=friend to play Study Together across homes";
   $("fAgent").textContent = data.agent;
@@ -1179,9 +1180,29 @@ function applyTheme() {
     state.card?.iframe.contentWindow?.postMessage({ jsonrpc: "2.0", method: "ui/notifications/host-context-changed", params: { theme: cardTheme() } }, "*");
   } catch {}
 }
+/**
+ * Which household this browser is. ?home=… picks one. On a hosted server, each browser gets its own
+ * private home (so two judges never see each other's learners); on localhost it's your own default home.
+ */
+function homeForThisBrowser() {
+  const asked = new URLSearchParams(location.search).get("home");
+  if (asked) return asked;
+  if (/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) return "";
+  try {
+    let id = localStorage.getItem("sb.home");
+    if (!id) {
+      id = `guest-${Math.random().toString(36).slice(2, 8)}`;
+      localStorage.setItem("sb.home", id);
+    }
+    return id;
+  } catch {
+    return `guest-${Math.random().toString(36).slice(2, 8)}`;
+  }
+}
+
 async function syncServerClock() {
   try {
-    const h = await (await fetch("/api/admin/now")).json();
+    const h = await (await fetch(`/api/admin/now?home=${encodeURIComponent(state.home ?? "")}`)).json();
     if (h.now) {
       state.clockOffset = Date.parse(h.now) - Date.now();
       $("serverNow").textContent = `Home clock: ${new Date(h.now).toLocaleString("en-US", { weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`;
@@ -1194,14 +1215,14 @@ document.querySelectorAll("[data-advance]").forEach((b) => {
   b.addEventListener("click", async () => {
     b.disabled = true;
     addNote(`Demo clock: moving ahead ${b.dataset.advance} day${b.dataset.advance === "1" ? "" : "s"} and running the overnight routine…`);
-    const r = await (await fetch("/api/admin/advance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ days: Number(b.dataset.advance) }) })).json().catch(() => ({}));
+    const r = await (await fetch("/api/admin/advance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ days: Number(b.dataset.advance), home: state.home ?? "home" }) })).json().catch(() => ({}));
     b.disabled = false;
     await syncServerClock();
     addNote(r.routines ? `Overnight routine done for ${r.routines} learner${r.routines === 1 ? "" : "s"}. Say "Good morning".` : `It's now the next day. Say "Good morning".`);
   });
 });
 $("resetHome").addEventListener("click", async () => {
-  await fetch("/api/admin/reset", { method: "POST" });
+  await fetch("/api/admin/reset", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ home: state.home ?? "home" }) });
   await syncServerClock();
   $("cardwrap").innerHTML = "";
   $("cardwrap").hidden = true;

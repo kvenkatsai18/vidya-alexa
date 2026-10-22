@@ -252,7 +252,10 @@ export class Mentor {
     this.store.update(() => {
       added = this.addLesson(l, text.charAt(0).toUpperCase() + text.slice(1), input.kind ?? "other", source);
     });
-    const speech = !added ? `I've already got that one, and I'll keep doing it.` : input.kind === "grading" ? `Thanks. I'll grade that more fairly from now on.` : `Thanks for telling me. I'll do it that way from now on.`;
+    // Caught from their words a moment ago (same turn): that's news to them, not a repeat.
+    const same = (l.lessons ?? []).find((x) => x.text.toLowerCase() === (text.charAt(0).toUpperCase() + text.slice(1)).toLowerCase());
+    const justNow = !!same && this.now().getTime() - Date.parse(same.at) < 2 * 60_000;
+    const speech = !added && !justNow ? `I've already got that one, and I'll keep doing it.` : input.kind === "grading" ? `Thanks. I'll grade that more fairly from now on.` : `Got it. I'll do it that way from now on.`;
     return { kind: "lesson_learned", title: "Got it", lesson: text, lessons: this.lessonsOf(l), learner: this.learnerCard(l), speech };
   }
 

@@ -55,6 +55,11 @@ export class HomeRegistry {
     return [...this.homes.values()];
   }
 
+  /** A home that's already open, without creating one. */
+  find(rawId?: string | null): Home | undefined {
+    return this.homes.get(homeIdFrom(rawId));
+  }
+
   /** Which home started a voice / school connect flow with this token. */
   findByToken(token: string): Home | undefined {
     return this.all().find((h) => {

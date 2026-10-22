@@ -193,16 +193,19 @@ app.post("/api/admin/:action", async (req, res) => {
       headers: { "Content-Type": "application/json", ...AUTH },
       body: JSON.stringify(req.body ?? {}),
     });
-    if (action === "reset") for (const s of sessions.values()) s.resetConversation();
+    // Only the asking home's devices forget the conversation.
+    const home = typeof req.body?.home === "string" ? req.body.home : undefined;
+    if (action === "reset") for (const s of sessions.values()) if (home === undefined || s.home === home) s.resetConversation();
     res.status(r.status).json(await r.json());
   } catch (e) {
     res.status(502).json({ error: (e as Error).message });
   }
 });
 
-app.get("/api/admin/now", async (_req, res) => {
+app.get("/api/admin/now", async (req, res) => {
   try {
-    res.json(await (await fetch(`${MCP_ORIGIN}/healthz`)).json());
+    const home = typeof req.query.home === "string" ? `?home=${encodeURIComponent(req.query.home)}` : "";
+    res.json(await (await fetch(`${MCP_ORIGIN}/healthz${home}`)).json());
   } catch (e) {
     res.status(502).json({ error: (e as Error).message });
   }

@@ -182,3 +182,12 @@ it("forgets a lesson by what it was about, and only a close match", async () => 
   assert.equal(store.get().learners[0].lessons!.length, 0, "lessons can be forgotten too");
   assert.equal(store.get().learners[0].memories.length, 1);
 });
+
+it("a correction caught as they said it isn't answered with 'I've already got that one'", async () => {
+  const { call } = await connect(model().llm);
+  await call("set_up_learner", { name: "Priya", level: "Grade 10" });
+  await call("record_turn", { heard: "These are too easy, give me harder new questions", said: "", phase: "heard" });
+  const r = await call("learn_from_feedback", { lesson: "Make questions more challenging", kind: "teaching", learner_said: "These are too easy, give me harder new questions" });
+  assert.doesNotMatch(r.speech, /already got that one/);
+  assert.match(r.speech, /from now on/);
+});

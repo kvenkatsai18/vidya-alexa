@@ -408,11 +408,14 @@
     });
   }
 
+  /** Lessons are notes to the assistant ("Call them Pri"); on the learner's screen they read to them ("Call you Pri"). */
+  const toYou = (t) => String(t ?? "").replace(/^Call them\b/, "Call you");
+
   /** Lessons the learner taught us by correcting us: the assistant getting better day by day. */
   function learnedList(lessons) {
     if (!lessons || !lessons.length) return "";
     return `<div class="panel"><h2 style="margin-bottom:.5rem">What I've learned about helping you</h2><ul class="kp">${lessons
-      .map((x) => `<li class="covered"><span>${esc(x.text)} <span class="muted">(${esc(x.when)}${x.source === "detected" ? ", from what you said" : ""})</span></span></li>`)
+      .map((x) => `<li class="covered"><span>${esc(toYou(x.text))} <span class="muted">(${esc(x.when)}${x.source === "detected" ? ", from what you said" : ""})</span></span></li>`)
       .join("")}</ul></div>`;
   }
 
@@ -467,7 +470,7 @@
 
     lesson_learned(d) {
       return `<div class="card enter"><p class="sub">Learned from you</p>
-        <h1 style="margin:.2rem 0 1rem">${esc(d.lesson && d.lesson.trim() ? d.lesson : d.title)}</h1>
+        <h1 style="margin:.2rem 0 1rem">${esc(d.lesson && d.lesson.trim() ? d.lesson.replace(/^Call them (.+)$/, "I'll call you $1") : d.title)}</h1>
         ${learnedList(d.lessons)}</div>`;
     },
 

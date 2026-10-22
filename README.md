@@ -58,7 +58,7 @@ An AI shouldn't be a child's secret-keeper. Vidya is designed around that.
 
 ## Try it
 
-**Hosted (no setup):** a live instance runs on Amazon Lightsail. The link and login are in the Devpost testing instructions.
+**Hosted (no setup):** a live instance runs on Amazon Lightsail. The link and login are in the Devpost testing instructions. Each browser gets its own private household there, and the demo clock and reset only touch yours.
 
 **Locally** (Node 20+). Vidya uses live AI only, with no pre-made content, so it needs AWS credentials with access to Amazon Nova on Bedrock (region `us-east-1`) and Amazon Polly:
 
@@ -82,7 +82,7 @@ Without any AI credentials the device says that an AI connection is required. No
 ### Things to say
 
 1. "Alexa, I'm Priya, 10th grade, I love cricket. I have a bio test on Friday."
-2. **Share notes** (a PDF or text file), then "What's the first thing I should know?" Then "huh?" and "simpler please".
+2. **Share notes** (a PDF or text file), or tap **Sample biology notes**. Then "What's the first thing I should know?", "huh?" and "simpler please".
 3. "Quiz me." Answer one wrong, and try answering before it finishes reading the options. Then "these are too easy".
 4. "Call me Pri from now on."
 5. **Pretend it's tomorrow** (side panel), then "Good morning". It tells you what it did overnight and starts with yesterday's mistake.
@@ -147,7 +147,7 @@ Key files:
 npm test
 ```
 
-77 tests (64 server, 13 simulator), with scripted stand-ins for the model so no AWS calls are made. Highlights:
+80 tests (65 server, 15 simulator), with scripted stand-ins for the model so no AWS calls are made. Highlights:
 
 - **The memory loop:** a mistake today comes back first tomorrow; getting it right resolves it.
 - **Learning from corrections:** saved only from the learner's own words, applied in the same reply, never invented from "stop".
