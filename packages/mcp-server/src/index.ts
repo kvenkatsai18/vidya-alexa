@@ -249,7 +249,7 @@ if (ADMIN) {
     for (const h of targets) h.store.advanceClock(days);
     log(`clock advanced ${days}d for ${targets.map((h) => h.id).join(", ")}`);
     // A new day on the demo clock: the overnight routine runs now, like it would at 5am.
-    const ran = days > 0 ? await runDailyRoutines(targets) : 0;
+    const ran = days > 0 ? await runDailyRoutines(targets, true) : 0;
     res.json({ now: targets[0].store.now().toISOString(), routines: ran });
   });
   app.post("/admin/reset", (req, res) => {
@@ -270,19 +270,20 @@ let routineRun: Promise<number> = Promise.resolve(0);
  * For every home: once a day per learner, from 5am home time. Returns how many briefings were prepared.
  * Runs one at a time; a request while one is running waits for it, then runs (for a new day, say).
  */
-function runDailyRoutines(only?: ReturnType<typeof homes.all>): Promise<number> {
-  const run = () => runDailyRoutinesNow(only ?? homes.all());
+function runDailyRoutines(only?: ReturnType<typeof homes.all>, anyHour = false): Promise<number> {
+  const run = () => runDailyRoutinesNow(only ?? homes.all(), anyHour);
   routineRun = routineRun.then(run, run);
   return routineRun;
 }
 
-async function runDailyRoutinesNow(list: ReturnType<typeof homes.all>): Promise<number> {
+async function runDailyRoutinesNow(list: ReturnType<typeof homes.all>, anyHour = false): Promise<number> {
   if (!routineModel) return 0;
   let n = 0;
   try {
     for (const h of list) {
       const hour = Number(h.store.now().toLocaleString("en-US", { hour: "numeric", hour12: false, timeZone: h.store.get().household.timeZone }));
-      if (hour < 5 && hour !== 0) continue;
+      // On its own it runs from 5am (or right after midnight); the demo clock runs it whatever the hour.
+      if (!anyHour && hour < 5 && hour !== 0) continue;
       const done = await h.mentor.dailyRoutine(routineModel, routineModel);
       n += done.length;
       if (done.length) log(`daily routine (${h.id}): ${done.map((r) => `${(r.learner as { name: string }).name}: ${r.speech}`).join(" | ")}`);

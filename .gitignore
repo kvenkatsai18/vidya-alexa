@@ -8,3 +8,4 @@ dist/
 
 # Hosting logins (never commit)
 deploy/hosting.local.txt
+.data-backups/

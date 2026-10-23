@@ -32,6 +32,9 @@ interface PendingElicit {
   resolve: (r: ElicitResult) => void;
 }
 
+/** A greeting on its own: "Good morning", "hi Vidya", "hey". */
+const GREETING = /^\s*(?:(?:hey |ok |okay )?alexa[,!.]?\s*)?(good (morning|afternoon|evening)|morning|hi|hello|hey|hiya)(\s+(there|vidya|alexa))?[\s!.,]*$/i;
+
 /** Words that say when something is: "Friday", "tomorrow", "in 5 days", "next week", "Oct 30". */
 const EXAM_WHEN = /\b(today|tomorrow|(mon|tues|wednes|thurs|fri|satur|sun)day|next week|in \d+ days?|(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]* \d{1,2}|\d{1,2}(st|nd|rd|th)? (of )?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec))\b/i;
 
@@ -309,6 +312,18 @@ export class Session {
         this.emit({ type: "speech", text: speech });
         await this.mcp.callTool("record_turn", { heard: utterance, said: speech, phase: "said" }).catch(() => undefined);
         return;
+      }
+      // "Good morning": today's briefing (what it did overnight, what's due, where to start), every time,
+      // whatever the model would have said.
+      if (GREETING.test(utterance)) {
+        const r = await this.ctx().callTool("get_today", {}).catch(() => undefined);
+        const brief = (r?.structuredContent as { kind?: string; speech?: string } | undefined) ?? {};
+        if (r && !r.isError && brief.speech && brief.kind !== "welcome") {
+          this.agent.note?.(`They greeted you ("${utterance}") and you answered with today's briefing: "${brief.speech}"`);
+          this.emit({ type: "speech", text: brief.speech });
+          await this.mcp.callTool("record_turn", { heard: utterance, said: brief.speech, phase: "said" }).catch(() => undefined);
+          return;
+        }
       }
       const speech = await this.agent.turn(this.ctx(), utterance);
       this.emit({ type: "speech", text: speech });

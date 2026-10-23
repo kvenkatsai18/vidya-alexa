@@ -249,3 +249,18 @@ it("the demo clock and 'Reset everything' only touch the home that asked (other 
   await a.close();
   await b.close();
 });
+
+it("'Good morning' always brings today's briefing, even if the model would just chat back", async () => {
+  const chatty = { label: "chatty", reset() {}, async turn() { return "Good morning! Ready to study?"; } };
+  const session = await Session.create(chatty as never, `${base}/mcp`, "greeting-test");
+  await session.callToolFromView("set_up_learner", { name: "Priya", level: "Grade 10", exam_title: "Bio test", exam_when: "next Monday" });
+  const said: string[] = [];
+  session.subscribe((e) => {
+    if (e.type === "speech") said.push((e as { text: string }).text);
+  });
+  await session.turn("Good morning", "voice");
+  assert.match(said.at(-1)!, /Priya/);
+  assert.match(said.at(-1)!, /Bio test|biology/i, "the briefing, with her test");
+  assert.notEqual(said.at(-1), "Good morning! Ready to study?");
+  await session.close();
+});

@@ -191,3 +191,12 @@ it("a correction caught as they said it isn't answered with 'I've already got th
   assert.doesNotMatch(r.speech, /already got that one/);
   assert.match(r.speech, /from now on/);
 });
+
+it("'my bio test' is linked to the Biology notes, so the overnight routine doesn't build a second set", async () => {
+  const { call, store } = await connect(model().llm);
+  await call("set_up_learner", { name: "Priya", level: "Grade 10", exam_title: "Bio test", exam_when: "next Monday" });
+  await call("add_material", { title: "Cell division", text: "Mitosis makes two identical cells. ".repeat(10) });
+  const s = store.get();
+  assert.equal(s.decks[0].subject, "Biology");
+  assert.deepEqual(s.learners[0].exams[0].deckIds, [s.decks[0].id], "Bio = Biology");
+});

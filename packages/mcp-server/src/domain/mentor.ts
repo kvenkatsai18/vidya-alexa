@@ -43,11 +43,15 @@ function examTopic(e: Exam): string {
   return t || e.subject || e.title;
 }
 
+/** How students shorten subject names: "bio test", "chem exam", "maths quiz". */
+const SUBJECT_SHORT: Record<string, string> = { bio: "biology", chem: "chemistry", phys: "physics", physic: "physics", math: "mathematics", maths: "mathematics", calc: "calculus", stats: "statistics", stat: "statistics", econ: "economics", eco: "economics", hist: "history", geo: "geography", geog: "geography", lit: "literature", eng: "english", cs: "computer science", compsci: "computer science", psych: "psychology", socio: "sociology", poli: "politics", polisci: "political science", bus: "business", acc: "accounting", accounts: "accounting", bioc: "biochemistry", biochem: "biochemistry", evs: "environmental science", sci: "science" };
+const fullSubjects = (text: string) => text.toLowerCase().replace(/\b[a-z]+\b/g, (w) => SUBJECT_SHORT[w] ?? w);
+
 /** Does this study set belong to this exam? Same subject, or the exam's title names the set's subject or topic. */
 function examMatchesDeck(e: Exam, d: Deck): boolean {
-  const subject = (d.subject || "").toLowerCase();
-  const title = e.title.toLowerCase();
-  if (e.subject && subject && e.subject.toLowerCase() === subject) return true;
+  const subject = fullSubjects(d.subject || "");
+  const title = fullSubjects(e.title);
+  if (e.subject && subject && fullSubjects(e.subject) === subject) return true;
   if (subject && subject !== "general" && new RegExp(`\\b${subject.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(title)) return true;
   const topic = examTopic(e).toLowerCase();
   return topic.length > 3 && (d.title.toLowerCase().includes(topic) || topic.includes(d.title.toLowerCase()));
