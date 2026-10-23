@@ -147,7 +147,7 @@ Key files:
 npm test
 ```
 
-80 tests (65 server, 15 simulator), with scripted stand-ins for the model so no AWS calls are made. Highlights:
+82 tests (66 server, 16 simulator), with scripted stand-ins for the model so no AWS calls are made. Highlights:
 
 - **The memory loop:** a mistake today comes back first tomorrow; getting it right resolves it.
 - **Learning from corrections:** saved only from the learner's own words, applied in the same reply, never invented from "stop".
